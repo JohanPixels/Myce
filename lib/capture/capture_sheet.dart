@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../nodes/data/node_repository_provider.dart';
+import '../inbox/data/inbox_repository_provider.dart';
 
 Future<void> mostrarCapturaSheet(BuildContext context, WidgetRef ref) {
   final controller = TextEditingController();
@@ -48,7 +48,7 @@ void _guardar(
   final texto = controller.text.trim();
   if (texto.isEmpty) return;
   ref
-      .read(nodeRepositoryProvider)
-      .capturar(texto); // no await: se cierra al instante
+      .read(inboxRepositoryProvider)
+      .capture(texto); // no await: se cierra al instante
   Navigator.of(ctx).pop();
 }

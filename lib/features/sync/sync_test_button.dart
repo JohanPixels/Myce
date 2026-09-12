@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'sync_repository.dart';
-import '../../nodes/data/database_provider.dart'; // ajusta esta ruta a donde tengas database.dart
+import '../../core/database/database_provider.dart';
 
 class SyncTestButton extends ConsumerStatefulWidget {
   const SyncTestButton({super.key});
@@ -16,10 +16,8 @@ class _SyncTestButtonState extends ConsumerState<SyncTestButton> {
 
   Future<void> _sync() async {
     setState(() => _syncing = true);
-    final db = ref.read(
-      databaseProvider,
-    ); // ajusta al nombre real de tu provider
-    await pushDirtyNodes(db);
+    final db = ref.read(databaseProvider);
+    await pushDirtyEntities(db);
     if (mounted) {
       setState(() => _syncing = false);
       ScaffoldMessenger.of(context).showSnackBar(

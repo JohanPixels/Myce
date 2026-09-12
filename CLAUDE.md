@@ -2,11 +2,15 @@
 
 Contexto de proyecto para Claude Code. Referencia completa del modelo: `docs/fuente_de_verdad.md`. Este archivo es el resumen operativo — si hay conflicto, la fuente de verdad manda.
 
-## Estado actual vs. objetivo — la brecha que hay que cerrar
+## Estado actual vs. objetivo — qué falta cerrar
 
-**El código de hoy NO implementa todavía el modelo de este documento.** Lo que corre ahora es el schema viejo de OctoDash: una tabla única `Nodes` (`lib/nodes/data/database.dart`) con campos en español (`tipo`, `subtipo`, `titulo`, `cuerpo`, `estado`, `areaRelacionadaId`) y un enum chico (`NodeType { proyecto, area, recurso, wishlist }` en `lib/nodes/domain/node_enums.dart`). El modelo `Entities + Activities + Relations` de la sección "Qué es Myce" es el **destino**, no el estado presente — no asumir que existen tablas `entities`, `relations`, `activity_links`, etc. hasta que se migren de verdad.
+**La migración de schema físico (OctoDash `Nodes` → Myce `Entities/Relations/Activities`) ya está hecha en local.** `lib/core/database/app_database.dart` define las 15 tablas del modelo v1 (`entities` + 7 tablas de tipo, `relations`+`relation_types`, `tasks`+`activity_links`, `inbox_items`, `tags`+`entity_tags`), con repositorios propios por feature (`lib/entities/data/`, `lib/relations/data/`, `lib/activities/data/`, `lib/inbox/data/`, `lib/tags/data/`) y la UI reconectada sobre ellos. `test/entity_migration_test.dart` cubre el flujo capturar→clasificar→consultar y la limpieza de `activity_links` al borrar una Task. El schema espejo ya corrió en Supabase (`supabase/schema.sql`, con RLS por usuario).
 
-**Objetivo explícito: cerrar esa brecha lo más rápido posible** para tener la app usable en el celular (Android es el target real). Prioridad al elegir tareas: cualquier trabajo que acerque el schema físico actual al de `docs/fuente_de_verdad.md` (sección 16: qué se traslada del patrón de sync, qué se reescribe del schema) vale más que pulir features sobre el modelo viejo que de todas formas se va a reemplazar.
+**Lo que queda pendiente, en orden de prioridad:**
+1. `sync_repository.dart` hoy solo empuja `entities` — falta extenderlo a `relations`/`tasks`/tablas de tipo/`tags`. Ojo: los `id` de `relation_types` sembrados en Supabase son distintos a los sembrados en local (cada lado corre su propio `onCreate`/seed) — sincronizar `relations` va a necesitar resolver `relation_type_id` por `key`, no por `id`.
+2. La UI no tiene pantalla propia para Person/Hobby/Goal todavía (se crean desde el Inbox clasificando, pero no aparecen en el bottom nav — decisión consciente para no saturarlo).
+3. Los Tags se escriben (`TagRepository.tagEntity`, usado por el flujo de wishlist) pero todavía no se muestran en ninguna pantalla (`category_screen.dart`/`review_screen.dart` no listan tags de cada Entity).
+4. Sin probar todavía en Android real (solo verificado en Linux desktop + tests) — Android sigue siendo el target de producción real.
 
 ## Qué es Myce
 
@@ -30,14 +34,12 @@ flutter analyze                                           # linter/type-check (n
 flutter run -d linux                                       # loop de desarrollo rápido
 flutter run -d <device-id>                                 # Android es el target de producción real; probar ahí antes de dar por buena una feature (`flutter devices` para listar)
 flutter test                                                # correr toda la suite
-flutter test test/widget_test.dart                          # correr un solo archivo de test
+flutter test test/entity_migration_test.dart                # test del flujo Inbox→Entity y de la limpieza de activity_links
 ```
-
-No hay tests reales todavía — `test/widget_test.dart` es el template default de Flutter, sin cobertura del dominio (`Nodes`/`NodeRepository`/sync).
 
 ## Estructura de carpetas (feature-based)
 
-Seguir el patrón ya establecido en OctoDash: carpetas por feature (`capture/`, `inbox/`, `entities/`, `relations/`, `activities/`, `review/`, `core/theme/`), no por tipo de archivo. Nueva feature → nueva carpeta con sus propios widgets/providers/repositorios.
+Carpetas por feature (`capture/`, `inbox/`, `entities/`, `relations/`, `activities/`, `tags/`, `review/`, `core/database/`, `core/theme/`), no por tipo de archivo. Nueva feature → nueva carpeta con sus propios widgets/providers/repositorios.
 
 ## Modelo de datos — reglas que NO se rompen sin discutirlo antes
 

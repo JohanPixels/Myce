@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../inbox/inbox_screen.dart';
-import '../../nodes/presentation/category_screen.dart';
+import '../../entities/presentation/category_screen.dart';
+import '../../entities/domain/entity_type.dart';
 import '../../capture/capture_sheet.dart';
 import '../../review/review_screen.dart';
-import '../../features/sync/sync_test_button.dart'; // ← nuevo import
+import '../../features/sync/sync_test_button.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
@@ -17,10 +18,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
   static const _screens = [
     InboxScreen(),
-    CategoryScreen(tipo: 'proyecto', titulo: 'Proyectos'),
-    CategoryScreen(tipo: 'area', titulo: 'Áreas'),
-    CategoryScreen(tipo: 'recurso', titulo: 'Recursos'),
-    CategoryScreen(tipo: 'wishlist', titulo: 'Wishlist'),
+    CategoryScreen(type: EntityType.project, titulo: 'Proyectos'),
+    CategoryScreen(type: EntityType.area, titulo: 'Áreas'),
+    CategoryScreen(
+      type: EntityType.resource,
+      titulo: 'Recursos',
+      showWishlistFilter: true,
+    ),
+    CategoryScreen(type: EntityType.note, titulo: 'Notas'),
     ReviewScreen(),
   ];
 
@@ -29,7 +34,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('OctoDash'),
-        actions: const [SyncTestButton()], // ← nuevo
+        actions: const [SyncTestButton()],
       ),
       body: IndexedStack(index: _index, children: _screens),
       floatingActionButton: FloatingActionButton(
@@ -47,7 +52,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           ),
           NavigationDestination(icon: Icon(Icons.landscape), label: 'Áreas'),
           NavigationDestination(icon: Icon(Icons.menu_book), label: 'Recursos'),
-          NavigationDestination(icon: Icon(Icons.star), label: 'Wishlist'),
+          NavigationDestination(icon: Icon(Icons.notes), label: 'Notas'),
           NavigationDestination(
             icon: Icon(Icons.fact_check),
             label: 'Revisión',

@@ -1,39 +1,43 @@
 import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../nodes/data/database.dart'; // ajusta la ruta a donde tengas database.dart
+import '../../core/database/app_database.dart';
 
-Future<List<NodeEntry>> _obtenerNodosSucios(AppDatabase db) {
-  return (db.select(db.nodes)..where((n) => n.dirty.equals(true))).get();
+// NOTA: esto sube solo `entities` (la tabla de identidad común) — todavía no
+// sincroniza relations/tasks/activity_links/tablas de tipo. Es el mínimo
+// para desbloquear el paso 4; sync multi-tabla completo queda pendiente
+// hasta definir el schema de Supabase (paso 5, docs/fuente_de_verdad.md §16).
+Future<List<EntityRow>> _obtenerEntitiesSucias(AppDatabase db) {
+  return (db.select(db.entities)..where((e) => e.dirty.equals(true))).get();
 }
 
-Map<String, dynamic> _aSupabaseMap(NodeEntry node, String userId) {
+Map<String, dynamic> _aSupabaseMap(EntityRow entity, String userId) {
   return {
-    'id': node.id,
+    'id': entity.id,
     'user_id': userId,
-    'tipo': node.tipo,
-    'subtipo': node.subtipo,
-    'titulo': node.titulo,
-    'cuerpo': node.cuerpo,
-    'estado': node.estado,
-    'area_relacionada': node.areaRelacionadaId,
-    'fecha_creacion': node.fechaCreacion.toIso8601String(),
-    'fecha_ultimo_toque': node.fechaUltimoToque.toIso8601String(),
-    'deleted_at': node.deletedAt?.toIso8601String(),
+    'type': entity.type,
+    'title': entity.title,
+    'description': entity.description,
+    'status': entity.status,
+    'created_at': entity.createdAt.toIso8601String(),
+    'updated_at': entity.updatedAt.toIso8601String(),
+    'deleted_at': entity.deletedAt?.toIso8601String(),
   };
 }
 
-Future<void> pushDirtyNodes(AppDatabase db) async {
+Future<void> pushDirtyEntities(AppDatabase db) async {
   final userId = Supabase.instance.client.auth.currentUser?.id;
   if (userId == null) return; // sin sesión, no hay a dónde subir
-  final nodosSucios = await _obtenerNodosSucios(db);
-  if (nodosSucios.isEmpty) return;
+  final entitiesSucias = await _obtenerEntitiesSucias(db);
+  if (entitiesSucias.isEmpty) return;
   final client = Supabase.instance.client;
-  for (final node in nodosSucios) {
+  for (final entity in entitiesSucias) {
     try {
-      await client.from('nodes').upsert(_aSupabaseMap(node, userId));
-      await (db.update(db.nodes)..where((n) => n.id.equals(node.id))).write(
-        const NodesCompanion(dirty: Value(false)),
+      await client.from('entities').upsert(_aSupabaseMap(entity, userId));
+      await (db.update(
+        db.entities,
+      )..where((e) => e.id.equals(entity.id))).write(
+        const EntitiesCompanion(dirty: Value(false)),
       );
     } catch (e) {
       // no tocamos dirty: se reintenta solo en el próximo ciclo de sync

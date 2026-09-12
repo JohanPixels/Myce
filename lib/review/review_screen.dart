@@ -1,24 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../nodes/data/database.dart';
-import '../nodes/data/node_repository_provider.dart';
+import '../core/database/app_database.dart';
+import '../entities/data/entity_repository_provider.dart';
+import '../entities/domain/entity_type.dart';
 
 const _diasEstancado = 7;
 
-final nodosActivosProvider = FutureProvider.autoDispose<List<NodeEntry>>((ref) {
-  return ref.watch(nodeRepositoryProvider).nodosActivos();
-});
-
-final nodosEstancadosProvider = FutureProvider.autoDispose<List<NodeEntry>>((
+final entitiesActivasProvider = FutureProvider.autoDispose<List<EntityRow>>((
   ref,
 ) {
-  return ref.watch(nodeRepositoryProvider).nodosEstancados(_diasEstancado);
+  return ref.watch(entityRepositoryProvider).listActive();
 });
 
-final wishlistSugerenciasProvider = FutureProvider.autoDispose<List<NodeEntry>>(
+final entitiesEstancadasProvider = FutureProvider.autoDispose<List<EntityRow>>(
   (ref) {
-    return ref.watch(nodeRepositoryProvider).wishlistSugerencias(3);
+    return ref.watch(entityRepositoryProvider).listStagnant(_diasEstancado);
+  },
+);
+
+final wishlistSugerenciasProvider = FutureProvider.autoDispose<List<EntityRow>>(
+  (ref) {
+    return ref.watch(entityRepositoryProvider).wishlistSuggestions(3);
   },
 );
 
@@ -34,13 +37,13 @@ class ReviewScreen extends ConsumerWidget {
         children: [
           _Seccion(
             titulo: '🟢 Activos',
-            provider: nodosActivosProvider,
-            vacio: 'No tienes nodos activos',
+            provider: entitiesActivasProvider,
+            vacio: 'No tienes entities activas',
           ),
           const SizedBox(height: 24),
           _Seccion(
             titulo: '🟡 Estancados (+$_diasEstancado días sin tocar)',
-            provider: nodosEstancadosProvider,
+            provider: entitiesEstancadasProvider,
             vacio: 'Nada estancado — vas al día',
             mostrarAcciones: true,
           ),
@@ -78,7 +81,7 @@ class _Seccion extends ConsumerWidget {
   });
 
   final String titulo;
-  final AutoDisposeFutureProvider<List<NodeEntry>> provider;
+  final AutoDisposeFutureProvider<List<EntityRow>> provider;
   final String vacio;
   final bool mostrarAcciones;
 
@@ -110,22 +113,22 @@ class _Seccion extends ConsumerWidget {
               );
             }
             return Column(
-              children: items.map((n) {
+              children: items.map((e) {
                 return Card(
                   child: ListTile(
-                    title: Text(n.titulo),
-                    subtitle: Text(n.subtipo ?? n.tipo ?? ''),
+                    title: Text(e.title),
+                    subtitle: Text(e.type.toEntityType().label),
                     trailing: mostrarAcciones
                         ? PopupMenuButton<String>(
                             onSelected: (accion) {
-                              final repo = ref.read(nodeRepositoryProvider);
+                              final repo = ref.read(entityRepositoryProvider);
                               if (accion == 'pausar') {
-                                repo.cambiarEstado(n.id, 'pausado');
+                                repo.changeStatus(e.id, EntityStatus.paused);
                               } else if (accion == 'retomar') {
-                                repo.tocar(n.id);
+                                repo.touch(e.id);
                               }
-                              ref.invalidate(nodosEstancadosProvider);
-                              ref.invalidate(nodosActivosProvider);
+                              ref.invalidate(entitiesEstancadasProvider);
+                              ref.invalidate(entitiesActivasProvider);
                             },
                             itemBuilder: (ctx) => const [
                               PopupMenuItem(
