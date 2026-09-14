@@ -76,6 +76,24 @@ class EntityRepository {
   Stream<List<EntityRow>> watchByType(EntityType type) =>
       _db.watchEntitiesByType(type.name);
 
+  Stream<EntityRow?> watchById(String id) => _db.watchEntityById(id);
+
+  Future<void> updateDescription(String id, String? description) {
+    return (_db.update(_db.entities)..where((e) => e.id.equals(id))).write(
+      EntitiesCompanion(
+        description: Value(description),
+        updatedAt: Value(DateTime.now()),
+        dirty: const Value(true),
+      ),
+    );
+  }
+
+  Future<List<EntityRow>> search(String query, {String? excludeId}) async {
+    final results = await _db.searchEntities(query);
+    if (excludeId == null) return results;
+    return results.where((e) => e.id != excludeId).toList();
+  }
+
   Future<void> touch(String id) {
     return (_db.update(_db.entities)..where((e) => e.id.equals(id))).write(
       EntitiesCompanion(updatedAt: Value(DateTime.now()), dirty: const Value(true)),

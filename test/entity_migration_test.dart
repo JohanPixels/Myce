@@ -4,6 +4,7 @@ import 'package:octo_dash/core/database/app_database.dart';
 import 'package:octo_dash/entities/data/entity_repository.dart';
 import 'package:octo_dash/entities/domain/entity_type.dart';
 import 'package:octo_dash/inbox/data/inbox_repository.dart';
+import 'package:octo_dash/relations/data/relation_repository.dart';
 import 'package:octo_dash/tags/data/tag_repository.dart';
 import 'package:octo_dash/activities/data/task_repository.dart';
 
@@ -80,5 +81,39 @@ void main() {
     await taskRepo.delete(taskId);
 
     expect(await db.select(db.activityLinks).get(), isEmpty);
+  });
+
+  test('editar descripción, tagear y conectar dos entities vía relations', () async {
+    final curso = await entities.create(
+      type: EntityType.resource,
+      title: 'Curso de Flutter',
+    );
+    final nota = await entities.create(
+      type: EntityType.note,
+      title: 'Apuntes del curso',
+    );
+
+    await entities.updateDescription(curso, 'Módulo 3: Riverpod');
+    final actualizada = await entities.watchById(curso).first;
+    expect(actualizada!.description, 'Módulo 3: Riverpod');
+
+    await tags.tagEntity(curso, 'programacion');
+    final cursoTags = await tags.watchTagsForEntity(curso).first;
+    expect(cursoTags.map((t) => t.name), contains('programacion'));
+
+    final relations = RelationRepository(db);
+    await relations.create(
+      sourceEntityId: nota,
+      targetEntityId: curso,
+      relationTypeKey: 'related_to',
+    );
+
+    final desdeCurso = await relations.listForEntityDisplay(curso);
+    expect(desdeCurso, hasLength(1));
+    expect(desdeCurso.first.otherEntityId, nota);
+
+    final desdeNota = await relations.listForEntityDisplay(nota);
+    expect(desdeNota, hasLength(1));
+    expect(desdeNota.first.otherEntityId, curso);
   });
 }

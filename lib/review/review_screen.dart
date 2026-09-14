@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/database/app_database.dart';
 import '../entities/data/entity_repository_provider.dart';
 import '../entities/domain/entity_type.dart';
+import '../entities/presentation/entity_detail_screen.dart';
 
 const _diasEstancado = 7;
 
@@ -118,6 +119,11 @@ class _Seccion extends ConsumerWidget {
                   child: ListTile(
                     title: Text(e.title),
                     subtitle: Text(e.type.toEntityType().label),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => EntityDetailScreen(entityId: e.id),
+                      ),
+                    ),
                     trailing: mostrarAcciones
                         ? PopupMenuButton<String>(
                             onSelected: (accion) {
