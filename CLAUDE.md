@@ -10,7 +10,7 @@ Contexto de proyecto para Claude Code. Referencia completa del modelo: `docs/fue
 1. `sync_repository.dart` hoy solo empuja `entities` — falta extenderlo a `relations`/`tasks`/tablas de tipo/`tags`. Ojo: los `id` de `relation_types` sembrados en Supabase son distintos a los sembrados en local (cada lado corre su propio `onCreate`/seed) — sincronizar `relations` va a necesitar resolver `relation_type_id` por `key`, no por `id`.
 2. La UI no tiene pantalla propia para Person/Hobby/Goal todavía (se crean desde el Inbox clasificando, pero no aparecen en el bottom nav — decisión consciente para no saturarlo).
 3. Los Tags se escriben (`TagRepository.tagEntity`, usado por el flujo de wishlist) pero todavía no se muestran en ninguna pantalla (`category_screen.dart`/`review_screen.dart` no listan tags de cada Entity).
-4. Sin probar todavía en Android real (solo verificado en Linux desktop + tests) — Android sigue siendo el target de producción real.
+4. ~~Sin probar en Android real~~ — probado en dispositivo real (Honor, Android 15): captura, clasificar, categorías, revisión y sync a `entities` en Supabase confirmados funcionando de punta a punta (2026-09-13).
 
 ## Qué es Myce
 
