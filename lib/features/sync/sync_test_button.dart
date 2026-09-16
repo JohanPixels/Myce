@@ -17,7 +17,7 @@ class _SyncTestButtonState extends ConsumerState<SyncTestButton> {
   Future<void> _sync() async {
     setState(() => _syncing = true);
     final db = ref.read(databaseProvider);
-    await pushDirtyEntities(db);
+    await pushDirtyData(db);
     if (mounted) {
       setState(() => _syncing = false);
       ScaffoldMessenger.of(context).showSnackBar(

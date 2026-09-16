@@ -9,3 +9,21 @@ extension TaskStatusParsing on String {
 extension TaskPriorityParsing on String {
   TaskPriority toTaskPriority() => TaskPriority.values.byName(this);
 }
+
+extension TaskStatusLabel on TaskStatus {
+  String get label => switch (this) {
+    TaskStatus.pending => 'Pendiente',
+    TaskStatus.inProgress => 'En curso',
+    TaskStatus.completed => 'Completada',
+    TaskStatus.cancelled => 'Cancelada',
+  };
+}
+
+extension TaskPriorityLabel on TaskPriority {
+  String get label => switch (this) {
+    TaskPriority.none => 'Sin prioridad',
+    TaskPriority.low => 'Baja',
+    TaskPriority.medium => 'Media',
+    TaskPriority.high => 'Alta',
+  };
+}

@@ -10,6 +10,7 @@ import '../../entities/data/entities_table.dart';
 class Tags extends Table {
   TextColumn get id => text().clientDefault(() => const Uuid().v4())();
   TextColumn get name => text().unique()();
+  BoolColumn get dirty => boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -23,6 +24,8 @@ class EntityTags extends Table {
       text().references(Tags, #id, onDelete: KeyAction.cascade)();
   DateTimeColumn get createdAt =>
       dateTime().withDefault(currentDateAndTime)();
+  BoolColumn get dirty => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {entityId, tagId};

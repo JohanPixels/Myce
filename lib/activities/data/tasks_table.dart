@@ -39,6 +39,8 @@ class ActivityLinks extends Table {
   TextColumn get linkType => text()(); // vocabulario separado de relation_types
   DateTimeColumn get createdAt =>
       dateTime().withDefault(currentDateAndTime)();
+  BoolColumn get dirty => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

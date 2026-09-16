@@ -191,3 +191,10 @@ create table if not exists public.entity_tags (
 alter table public.entity_tags enable row level security;
 create policy "entity_tags_own" on public.entity_tags
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- MIGRACIÓN INCREMENTAL — sync extendido más allá de `entities` (2026-09).
+-- Correr a mano en el SQL editor si el proyecto ya corrió una versión
+-- anterior de este archivo; usa IF NOT EXISTS así que también es seguro
+-- correrlo en un proyecto nuevo.
+alter table public.activity_links add column if not exists deleted_at timestamptz;
+alter table public.entity_tags add column if not exists deleted_at timestamptz;

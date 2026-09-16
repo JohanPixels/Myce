@@ -39,7 +39,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -60,6 +60,45 @@ class AppDatabase extends _$AppDatabase {
           ],
         );
       });
+    },
+    onUpgrade: (Migrator m, int from, int to) async {
+      if (from < 2) {
+        // dirty/deletedAt en activity_links/tags/entity_tags — necesarios
+        // para extender el sync (hoy solo empujaba entities) más allá de
+        // entities/relations/tasks, que ya nacieron con estas columnas.
+        await m.addColumn(activityLinks, activityLinks.dirty);
+        await m.addColumn(activityLinks, activityLinks.deletedAt);
+        await m.addColumn(tags, tags.dirty);
+        await m.addColumn(entityTags, entityTags.dirty);
+        await m.addColumn(entityTags, entityTags.deletedAt);
+      }
+      if (from < 3) {
+        // dirty en las 7 tablas de tipo — se suman al sync (antes solo
+        // existían localmente, sin llegar nunca a Supabase).
+        await m.addColumn(projects, projects.dirty);
+        await m.addColumn(notes, notes.dirty);
+        await m.addColumn(areas, areas.dirty);
+        await m.addColumn(resources, resources.dirty);
+        await m.addColumn(people, people.dirty);
+        await m.addColumn(hobbies, hobbies.dirty);
+        await m.addColumn(goals, goals.dirty);
+      }
+      if (from < 4) {
+        // La UI escribía el cuerpo de una Nota en entities.description (el
+        // campo genérico) en vez de notes.content (su campo propio, ver
+        // docs/fuente_de_verdad.md §4.3) — se corrige la UI en el mismo
+        // cambio, y acá se rescata lo ya escrito antes de la corrección
+        // para las Notes existentes (no se pisa nada, solo se copia).
+        await m.database.customStatement('''
+          UPDATE notes
+          SET content = (SELECT description FROM entities WHERE entities.id = notes.entity_id),
+              dirty = 1
+          WHERE content IS NULL
+            AND entity_id IN (
+              SELECT id FROM entities WHERE type = 'note' AND description IS NOT NULL
+            );
+        ''');
+      }
     },
   );
 

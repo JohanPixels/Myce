@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../inbox/inbox_screen.dart';
 import '../../entities/presentation/category_screen.dart';
 import '../../entities/domain/entity_type.dart';
+import '../../activities/presentation/task_list_screen.dart';
 import '../../capture/capture_sheet.dart';
 import '../../review/review_screen.dart';
 import '../../features/sync/sync_test_button.dart';
@@ -18,6 +19,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
   static const _screens = [
     InboxScreen(),
+    TaskListScreen(),
     CategoryScreen(type: EntityType.project, titulo: 'Proyectos'),
     CategoryScreen(type: EntityType.area, titulo: 'Áreas'),
     CategoryScreen(
@@ -46,6 +48,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.inbox), label: 'Inbox'),
+          NavigationDestination(
+            icon: Icon(Icons.check_circle_outline),
+            label: 'Tareas',
+          ),
           NavigationDestination(
             icon: Icon(Icons.rocket_launch),
             label: 'Proyectos',

@@ -78,6 +78,47 @@ class EntityRepository {
 
   Stream<EntityRow?> watchById(String id) => _db.watchEntityById(id);
 
+  /// Campo propio de Note (docs/fuente_de_verdad.md §4.3) — Markdown,
+  /// distinto de `description` (que sigue siendo el campo común genérico
+  /// para el resto de los tipos, que no tienen contenido propio).
+  Stream<NoteRow?> watchNote(String entityId) =>
+      (_db.select(_db.notes)..where((n) => n.entityId.equals(entityId)))
+          .watchSingleOrNull();
+
+  Future<void> updateNoteContent(String entityId, String? content) {
+    return (_db.update(
+      _db.notes,
+    )..where((n) => n.entityId.equals(entityId))).write(
+      NotesCompanion(content: Value(content), dirty: const Value(true)),
+    );
+  }
+
+  Stream<ProjectRow?> watchProject(String entityId) =>
+      (_db.select(_db.projects)..where((p) => p.entityId.equals(entityId)))
+          .watchSingleOrNull();
+
+  Future<void> updateProjectStartedAt(String entityId, DateTime? startedAt) {
+    return (_db.update(
+      _db.projects,
+    )..where((p) => p.entityId.equals(entityId))).write(
+      ProjectsCompanion(startedAt: Value(startedAt), dirty: const Value(true)),
+    );
+  }
+
+  Future<void> updateProjectCompletedAt(
+    String entityId,
+    DateTime? completedAt,
+  ) {
+    return (_db.update(
+      _db.projects,
+    )..where((p) => p.entityId.equals(entityId))).write(
+      ProjectsCompanion(
+        completedAt: Value(completedAt),
+        dirty: const Value(true),
+      ),
+    );
+  }
+
   Future<void> updateDescription(String id, String? description) {
     return (_db.update(_db.entities)..where((e) => e.id.equals(id))).write(
       EntitiesCompanion(

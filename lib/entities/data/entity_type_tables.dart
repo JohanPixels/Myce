@@ -8,6 +8,7 @@ class Projects extends Table {
       text().references(Entities, #id, onDelete: KeyAction.cascade)();
   DateTimeColumn get startedAt => dateTime().nullable()();
   DateTimeColumn get completedAt => dateTime().nullable()();
+  BoolColumn get dirty => boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column> get primaryKey => {entityId};
@@ -18,6 +19,7 @@ class Notes extends Table {
   TextColumn get entityId =>
       text().references(Entities, #id, onDelete: KeyAction.cascade)();
   TextColumn get content => text().nullable()(); // Markdown
+  BoolColumn get dirty => boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column> get primaryKey => {entityId};
@@ -30,6 +32,7 @@ class Notes extends Table {
 class Areas extends Table {
   TextColumn get entityId =>
       text().references(Entities, #id, onDelete: KeyAction.cascade)();
+  BoolColumn get dirty => boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column> get primaryKey => {entityId};
@@ -39,6 +42,7 @@ class Areas extends Table {
 class Resources extends Table {
   TextColumn get entityId =>
       text().references(Entities, #id, onDelete: KeyAction.cascade)();
+  BoolColumn get dirty => boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column> get primaryKey => {entityId};
@@ -48,6 +52,7 @@ class Resources extends Table {
 class People extends Table {
   TextColumn get entityId =>
       text().references(Entities, #id, onDelete: KeyAction.cascade)();
+  BoolColumn get dirty => boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column> get primaryKey => {entityId};
@@ -57,6 +62,7 @@ class People extends Table {
 class Hobbies extends Table {
   TextColumn get entityId =>
       text().references(Entities, #id, onDelete: KeyAction.cascade)();
+  BoolColumn get dirty => boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column> get primaryKey => {entityId};
@@ -66,6 +72,7 @@ class Hobbies extends Table {
 class Goals extends Table {
   TextColumn get entityId =>
       text().references(Entities, #id, onDelete: KeyAction.cascade)();
+  BoolColumn get dirty => boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column> get primaryKey => {entityId};

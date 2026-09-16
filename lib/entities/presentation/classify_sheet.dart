@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../activities/domain/task_enums.dart';
 import '../../inbox/data/inbox_repository_provider.dart';
 import '../domain/entity_type.dart';
 
@@ -19,6 +20,9 @@ Future<void> mostrarClasificarSheet(
   EntityType? tipoSeleccionado;
   bool esWishlist = false;
   String? subtipoSeleccionado;
+  bool esTarea = false;
+  TaskPriority prioridadSeleccionada = TaskPriority.none;
+  DateTime? fechaLimite;
 
   return showModalBottomSheet(
     context: context,
@@ -46,20 +50,85 @@ Future<void> mostrarClasificarSheet(
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: EntityType.values.map((tipo) {
-                      return ChoiceChip(
-                        label: Text(tipo.label),
-                        selected: tipoSeleccionado == tipo,
+                    children: [
+                      ...EntityType.values.map((tipo) {
+                        return ChoiceChip(
+                          label: Text(tipo.label),
+                          selected: tipoSeleccionado == tipo,
+                          onSelected: (_) => setState(() {
+                            esTarea = false;
+                            tipoSeleccionado = tipo;
+                            if (tipo != EntityType.resource) {
+                              esWishlist = false;
+                              subtipoSeleccionado = null;
+                            }
+                          }),
+                        );
+                      }),
+                      ChoiceChip(
+                        label: const Text('Tarea'),
+                        selected: esTarea,
                         onSelected: (_) => setState(() {
-                          tipoSeleccionado = tipo;
-                          if (tipo != EntityType.resource) {
-                            esWishlist = false;
-                            subtipoSeleccionado = null;
-                          }
+                          esTarea = true;
+                          tipoSeleccionado = null;
+                          esWishlist = false;
+                          subtipoSeleccionado = null;
                         }),
-                      );
-                    }).toList(),
+                      ),
+                    ],
                   ),
+                  if (esTarea) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'Prioridad',
+                      style: Theme.of(ctx).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: TaskPriority.values.map((p) {
+                        return ChoiceChip(
+                          label: Text(p.label),
+                          selected: prioridadSeleccionada == p,
+                          onSelected: (_) =>
+                              setState(() => prioridadSeleccionada = p),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Text(
+                          fechaLimite == null
+                              ? 'Sin fecha límite'
+                              : 'Vence: ${fechaLimite!.year}-${fechaLimite!.month.toString().padLeft(2, '0')}-${fechaLimite!.day.toString().padLeft(2, '0')}',
+                          style: Theme.of(ctx).textTheme.bodyMedium,
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.edit_calendar_outlined),
+                          tooltip: 'Elegir fecha límite',
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: ctx,
+                              initialDate: fechaLimite ?? DateTime.now(),
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2100),
+                            );
+                            if (picked != null) {
+                              setState(() => fechaLimite = picked);
+                            }
+                          },
+                        ),
+                        if (fechaLimite != null)
+                          IconButton(
+                            icon: const Icon(Icons.clear),
+                            tooltip: 'Quitar fecha límite',
+                            onPressed: () =>
+                                setState(() => fechaLimite = null),
+                          ),
+                      ],
+                    ),
+                  ],
                   if (tipoSeleccionado == EntityType.resource) ...[
                     const SizedBox(height: 16),
                     Text(
@@ -110,24 +179,35 @@ Future<void> mostrarClasificarSheet(
                     width: double.infinity,
                     child: FilledButton(
                       onPressed:
-                          (tipoSeleccionado == null ||
-                              (esWishlist && subtipoSeleccionado == null))
-                          ? null
-                          : () {
-                              ref
-                                  .read(inboxRepositoryProvider)
-                                  .classify(
-                                    inboxItemId,
-                                    type: tipoSeleccionado!,
-                                    status: esWishlist
-                                        ? EntityStatus.someday
-                                        : EntityStatus.active,
-                                    tags: subtipoSeleccionado != null
-                                        ? [subtipoSeleccionado!]
-                                        : const [],
-                                  );
+                          esTarea ||
+                              (tipoSeleccionado != null &&
+                                  (!esWishlist || subtipoSeleccionado != null))
+                          ? () {
+                              if (esTarea) {
+                                ref
+                                    .read(inboxRepositoryProvider)
+                                    .classifyAsTask(
+                                      inboxItemId,
+                                      priority: prioridadSeleccionada,
+                                      dueAt: fechaLimite,
+                                    );
+                              } else {
+                                ref
+                                    .read(inboxRepositoryProvider)
+                                    .classify(
+                                      inboxItemId,
+                                      type: tipoSeleccionado!,
+                                      status: esWishlist
+                                          ? EntityStatus.someday
+                                          : EntityStatus.active,
+                                      tags: subtipoSeleccionado != null
+                                          ? [subtipoSeleccionado!]
+                                          : const [],
+                                    );
+                              }
                               Navigator.of(ctx).pop();
-                            },
+                            }
+                          : null,
                       child: const Text('Guardar'),
                     ),
                   ),

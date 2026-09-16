@@ -22,10 +22,18 @@ class TagRepository {
 
   Future<void> tagEntity(String entityId, String tagName) async {
     final tagId = await _findOrCreate(tagName);
+    // deletedAt/dirty explícitos: insertOnConflictUpdate solo pisa los campos
+    // presentes en el companion, así que sin esto un re-tag después de un
+    // untag dejaría la fila revivida con el deletedAt viejo para siempre.
     await _db
         .into(_db.entityTags)
         .insertOnConflictUpdate(
-          EntityTagsCompanion.insert(entityId: entityId, tagId: tagId),
+          EntityTagsCompanion.insert(
+            entityId: entityId,
+            tagId: tagId,
+            deletedAt: const Value(null),
+            dirty: const Value(true),
+          ),
         );
   }
 
@@ -35,10 +43,17 @@ class TagRepository {
       _db.tags,
     )..where((t) => t.name.equals(normalized))).getSingleOrNull();
     if (tag == null) return;
-    await (_db.delete(_db.entityTags)..where(
+    // Soft-delete (no hard delete) para que el sync pueda propagar el
+    // untag a Supabase.
+    await (_db.update(_db.entityTags)..where(
           (et) => et.entityId.equals(entityId) & et.tagId.equals(tag.id),
         ))
-        .go();
+        .write(
+          EntityTagsCompanion(
+            deletedAt: Value(DateTime.now()),
+            dirty: const Value(true),
+          ),
+        );
   }
 
   Stream<List<TagRow>> watchTagsForEntity(String entityId) {
@@ -49,7 +64,10 @@ class TagRepository {
               _db.entityTags.tagId.equalsExp(_db.tags.id),
             ),
           ])
-          ..where(_db.entityTags.entityId.equals(entityId));
+          ..where(
+            _db.entityTags.entityId.equals(entityId) &
+                _db.entityTags.deletedAt.isNull(),
+          );
     return query.watch().map(
       (rows) => rows.map((r) => r.readTable(_db.tags)).toList(),
     );

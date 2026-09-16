@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../activities/data/task_repository_provider.dart';
+import '../../activities/domain/task_enums.dart';
+import '../../activities/presentation/add_task_sheet.dart';
+import '../../activities/presentation/task_detail_screen.dart';
 import '../../core/database/app_database.dart';
 import '../../relations/data/relation_repository.dart';
 import '../../relations/data/relation_repository_provider.dart';
@@ -25,6 +29,8 @@ class EntityDetailScreen extends ConsumerStatefulWidget {
 class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
   final _descriptionController = TextEditingController();
   bool _descriptionDirty = false;
+  final _noteContentController = TextEditingController();
+  bool _noteContentDirty = false;
   late Future<List<RelationDisplayItem>> _relationsFuture;
 
   @override
@@ -46,13 +52,32 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
   @override
   void dispose() {
     _descriptionController.dispose();
+    _noteContentController.dispose();
     super.dispose();
+  }
+
+  String _formatDate(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  Future<void> _pickDate(
+    BuildContext context,
+    DateTime? current,
+    void Function(DateTime?) onPicked,
+  ) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) onPicked(picked);
   }
 
   @override
   Widget build(BuildContext context) {
     final entityRepo = ref.watch(entityRepositoryProvider);
     final tagRepo = ref.watch(tagRepositoryProvider);
+    final taskRepo = ref.watch(taskRepositoryProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Detalle')),
@@ -66,6 +91,7 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
           if (entity == null) {
             return const Center(child: Text('Esto ya no existe'));
           }
+          final type = entity.type.toEntityType();
           if (!_descriptionDirty &&
               _descriptionController.text != (entity.description ?? '')) {
             _descriptionController.text = entity.description ?? '';
@@ -98,36 +124,182 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
                 }).toList(),
               ),
 
-              const SizedBox(height: 24),
-              Text('Notas', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _descriptionController,
-                maxLines: null,
-                minLines: 4,
-                decoration: const InputDecoration(
-                  hintText: 'Escribí lo que quieras guardar sobre esto...',
-                  border: OutlineInputBorder(),
+              if (type == EntityType.project) ...[
+                const SizedBox(height: 24),
+                Text(
+                  'Fechas del proyecto',
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
-                onChanged: (_) => setState(() => _descriptionDirty = true),
-              ),
-              if (_descriptionDirty) ...[
                 const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton(
-                    onPressed: () async {
-                      await entityRepo.updateDescription(
-                        entity.id,
-                        _descriptionController.text.trim().isEmpty
-                            ? null
-                            : _descriptionController.text.trim(),
-                      );
-                      setState(() => _descriptionDirty = false);
-                    },
-                    child: const Text('Guardar notas'),
-                  ),
+                StreamBuilder<ProjectRow?>(
+                  stream: entityRepo.watchProject(entity.id),
+                  builder: (context, projectSnapshot) {
+                    final project = projectSnapshot.data;
+                    return Column(
+                      children: [
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Inicio'),
+                          subtitle: Text(
+                            project?.startedAt == null
+                                ? 'Sin definir'
+                                : _formatDate(project!.startedAt!),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit_calendar_outlined),
+                                tooltip: 'Elegir fecha de inicio',
+                                onPressed: () => _pickDate(
+                                  context,
+                                  project?.startedAt,
+                                  (d) => entityRepo.updateProjectStartedAt(
+                                    entity.id,
+                                    d,
+                                  ),
+                                ),
+                              ),
+                              if (project?.startedAt != null)
+                                IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  tooltip: 'Quitar fecha de inicio',
+                                  onPressed: () => entityRepo
+                                      .updateProjectStartedAt(entity.id, null),
+                                ),
+                            ],
+                          ),
+                        ),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Completado'),
+                          subtitle: Text(
+                            project?.completedAt == null
+                                ? 'Sin definir'
+                                : _formatDate(project!.completedAt!),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit_calendar_outlined),
+                                tooltip: 'Elegir fecha de completado',
+                                onPressed: () => _pickDate(
+                                  context,
+                                  project?.completedAt,
+                                  (d) => entityRepo.updateProjectCompletedAt(
+                                    entity.id,
+                                    d,
+                                  ),
+                                ),
+                              ),
+                              if (project?.completedAt != null)
+                                IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  tooltip: 'Quitar fecha de completado',
+                                  onPressed: () => entityRepo
+                                      .updateProjectCompletedAt(
+                                        entity.id,
+                                        null,
+                                      ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
+              ],
+
+              const SizedBox(height: 24),
+              // Note tiene contenido propio (Markdown) en notes.content —
+              // docs/fuente_de_verdad.md §4.3. El resto de los tipos no
+              // tienen campo de texto propio y usan entities.description.
+              if (type == EntityType.note) ...[
+                Text(
+                  'Contenido',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                StreamBuilder<NoteRow?>(
+                  stream: entityRepo.watchNote(entity.id),
+                  builder: (context, noteSnapshot) {
+                    final note = noteSnapshot.data;
+                    if (!_noteContentDirty &&
+                        _noteContentController.text !=
+                            (note?.content ?? '')) {
+                      _noteContentController.text = note?.content ?? '';
+                    }
+                    return Column(
+                      children: [
+                        TextField(
+                          controller: _noteContentController,
+                          maxLines: null,
+                          minLines: 6,
+                          decoration: const InputDecoration(
+                            hintText: 'Escribí tu nota en Markdown...',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (_) =>
+                              setState(() => _noteContentDirty = true),
+                        ),
+                        if (_noteContentDirty) ...[
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: FilledButton(
+                              onPressed: () async {
+                                await entityRepo.updateNoteContent(
+                                  entity.id,
+                                  _noteContentController.text.trim().isEmpty
+                                      ? null
+                                      : _noteContentController.text.trim(),
+                                );
+                                setState(() => _noteContentDirty = false);
+                              },
+                              child: const Text('Guardar contenido'),
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+                  },
+                ),
+              ] else ...[
+                Text(
+                  'Notas',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _descriptionController,
+                  maxLines: null,
+                  minLines: 4,
+                  decoration: const InputDecoration(
+                    hintText: 'Escribí lo que quieras guardar sobre esto...',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => setState(() => _descriptionDirty = true),
+                ),
+                if (_descriptionDirty) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton(
+                      onPressed: () async {
+                        await entityRepo.updateDescription(
+                          entity.id,
+                          _descriptionController.text.trim().isEmpty
+                              ? null
+                              : _descriptionController.text.trim(),
+                        );
+                        setState(() => _descriptionDirty = false);
+                      },
+                      child: const Text('Guardar notas'),
+                    ),
+                  ),
+                ],
               ],
 
               const SizedBox(height: 24),
@@ -155,6 +327,46 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
                             _mostrarAgregarTag(context, tagRepo, entity.id),
                       ),
                     ],
+                  );
+                },
+              ),
+
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Tareas', style: Theme.of(context).textTheme.titleMedium),
+                  IconButton(
+                    icon: const Icon(Icons.add_task),
+                    tooltip: 'Agregar tarea',
+                    onPressed: () =>
+                        mostrarAgregarTareaSheet(context, ref, entity.id),
+                  ),
+                ],
+              ),
+              StreamBuilder<List<TaskRow>>(
+                stream: taskRepo.watchLinkedToEntity(entity.id),
+                builder: (context, taskSnapshot) {
+                  final linkedTasks = taskSnapshot.data ?? const [];
+                  if (linkedTasks.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text('Sin tareas vinculadas todavía'),
+                    );
+                  }
+                  return Column(
+                    children: linkedTasks.map((t) {
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(t.title),
+                        subtitle: Text(t.status.toTaskStatus().label),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => TaskDetailScreen(taskId: t.id),
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   );
                 },
               ),

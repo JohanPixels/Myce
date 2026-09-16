@@ -1,15 +1,18 @@
 import 'package:drift/drift.dart';
 
+import '../../activities/data/task_repository.dart';
+import '../../activities/domain/task_enums.dart';
 import '../../core/database/app_database.dart';
 import '../../entities/data/entity_repository.dart';
 import '../../entities/domain/entity_type.dart';
 import '../../tags/data/tag_repository.dart';
 
 class InboxRepository {
-  InboxRepository(this._db, this._entities, this._tags);
+  InboxRepository(this._db, this._entities, this._tags, this._tasks);
   final AppDatabase _db;
   final EntityRepository _entities;
   final TagRepository _tags;
+  final TaskRepository _tasks;
 
   Future<void> capture(String content) {
     return _db
@@ -50,6 +53,36 @@ class InboxRepository {
             ),
           );
       return entityId;
+    });
+  }
+
+  /// Igual que `classify()` pero produce una Task en vez de una Entity —
+  /// no reusa `classify()` porque `type` ahí es estrictamente `EntityType`
+  /// y una Task no es Entity (no crea fila en `entities`).
+  Future<String> classifyAsTask(
+    String inboxItemId, {
+    TaskPriority priority = TaskPriority.none,
+    DateTime? dueAt,
+  }) async {
+    final item = await (_db.select(
+      _db.inboxItems,
+    )..where((i) => i.id.equals(inboxItemId))).getSingle();
+
+    return _db.transaction(() async {
+      final taskId = await _tasks.create(
+        title: item.content,
+        priority: priority,
+        dueAt: dueAt,
+      );
+      await (_db.update(_db.inboxItems)
+            ..where((i) => i.id.equals(inboxItemId)))
+          .write(
+            InboxItemsCompanion(
+              deletedAt: Value(DateTime.now()),
+              dirty: const Value(true),
+            ),
+          );
+      return taskId;
     });
   }
 }
