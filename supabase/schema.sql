@@ -2,9 +2,11 @@
 -- Corre esto una sola vez en el SQL editor de Supabase (Project > SQL Editor).
 -- Espeja 1:1 el schema local de Drift (lib/core/database/app_database.dart).
 --
--- Estado del sync en código (2026-09): sync_repository.dart hoy solo empuja
--- `entities`. El resto de las tablas quedan listas acá para cuando el sync
--- se extienda a relations/tasks/tags/etc. — así no hay que volver a esto.
+-- Estado del sync en código (2026-09-16): sync_repository.dart hace push Y
+-- pull de las 15 tablas de este schema (entities + 7 tipo, relations,
+-- tasks+activity_links, inbox_items, tags+entity_tags) vía syncNow(db).
+-- relation_types es la única tabla de solo lectura (vocabulario compartido,
+-- sembrado una vez acá abajo).
 
 -- ENTITIES --------------------------------------------------------------
 create table if not exists public.entities (

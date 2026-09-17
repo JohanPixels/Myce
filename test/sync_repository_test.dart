@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:octo_dash/core/database/app_database.dart';
@@ -10,9 +11,14 @@ import 'package:octo_dash/activities/data/task_repository.dart';
 
 /// Fake sin librería de mocking (el proyecto no usa mockito/mocktail).
 class FakeSyncClient implements SyncClient {
-  FakeSyncClient({this.tables = const {}, this.failTables = const {}});
+  FakeSyncClient({
+    this.tables = const {},
+    this.failTables = const {},
+    this.failSelectTables = const {},
+  });
   final Map<String, List<Map<String, dynamic>>> tables;
   final Set<String> failTables;
+  final Set<String> failSelectTables;
   final List<MapEntry<String, Map<String, dynamic>>> upserts = [];
 
   @override
@@ -22,9 +28,18 @@ class FakeSyncClient implements SyncClient {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> selectAll(String table) async =>
-      tables[table] ?? [];
+  Future<List<Map<String, dynamic>>> selectAll(String table) async {
+    if (failSelectTables.contains(table)) {
+      throw Exception('fake select failure: $table');
+    }
+    return tables[table] ?? [];
+  }
 }
+
+/// Fixture de relation_types remoto: mismas keys que el vocabulario local
+/// (initialRelationTypes), ids deliberadamente distintos.
+List<Map<String, dynamic>> _remoteRelationTypes(List<RelationTypeRow> local) =>
+    [for (final t in local) {'id': 'remote-${t.key}', 'key': t.key}];
 
 void main() {
   late AppDatabase db;
@@ -156,5 +171,243 @@ void main() {
 
     final entityTagUpsert = fakeDelete.upserts.firstWhere((e) => e.key == 'entity_tags').value;
     expect(entityTagUpsert['deleted_at'], isNotNull);
+  });
+
+  test('pull hidrata un local vacío con entities/relations/tasks/tags/activity_links/inbox remotos', () async {
+    final localTypes = await db.select(db.relationTypes).get();
+    final remoteRelationTypeId = 'remote-related_to';
+
+    final fake = FakeSyncClient(
+      tables: {
+        'relation_types': _remoteRelationTypes(localTypes),
+        'entities': [
+          {
+            'id': 'e1',
+            'type': 'project',
+            'title': 'Proyecto remoto',
+            'description': null,
+            'status': 'active',
+            'created_at': '2026-01-01T00:00:00.000Z',
+            'updated_at': '2026-01-01T00:00:00.000Z',
+            'deleted_at': null,
+          },
+          {
+            'id': 'e2',
+            'type': 'note',
+            'title': 'Nota remota',
+            'description': null,
+            'status': 'active',
+            'created_at': '2026-01-01T00:00:00.000Z',
+            'updated_at': '2026-01-01T00:00:00.000Z',
+            'deleted_at': null,
+          },
+        ],
+        'projects': [
+          {'entity_id': 'e1', 'started_at': null, 'completed_at': null},
+        ],
+        'notes': [
+          {'entity_id': 'e2', 'content': 'contenido remoto'},
+        ],
+        'tags': [
+          {'id': 't1', 'name': 'trabajo'},
+        ],
+        'entity_tags': [
+          {
+            'entity_id': 'e1',
+            'tag_id': 't1',
+            'created_at': '2026-01-01T00:00:00.000Z',
+            'deleted_at': null,
+          },
+        ],
+        'relations': [
+          {
+            'id': 'r1',
+            'source_entity_id': 'e1',
+            'target_entity_id': 'e2',
+            'relation_type_id': remoteRelationTypeId,
+            'note': null,
+            'metadata': null,
+            'created_at': '2026-01-01T00:00:00.000Z',
+            'deleted_at': null,
+          },
+        ],
+        'tasks': [
+          {
+            'id': 'task1',
+            'title': 'Tarea remota',
+            'description': null,
+            'status': 'pending',
+            'priority': 'none',
+            'due_at': null,
+            'completed_at': null,
+            'created_at': '2026-01-01T00:00:00.000Z',
+            'updated_at': '2026-01-01T00:00:00.000Z',
+            'deleted_at': null,
+          },
+        ],
+        'activity_links': [
+          {
+            'id': 'link1',
+            'activity_type': 'task',
+            'activity_id': 'task1',
+            'entity_id': 'e1',
+            'link_type': 'part_of',
+            'created_at': '2026-01-01T00:00:00.000Z',
+            'deleted_at': null,
+          },
+        ],
+        'inbox_items': [
+          {
+            'id': 'inbox1',
+            'content': 'algo capturado',
+            'created_at': '2026-01-01T00:00:00.000Z',
+            'deleted_at': null,
+          },
+        ],
+      },
+    );
+
+    await pullRemoteData(db, userId: 'u1', client: fake);
+
+    final e1 = await (db.select(db.entities)..where((e) => e.id.equals('e1'))).getSingle();
+    expect(e1.title, 'Proyecto remoto');
+    expect(e1.dirty, isFalse);
+
+    final project = await (db.select(db.projects)..where((p) => p.entityId.equals('e1'))).getSingle();
+    expect(project.dirty, isFalse);
+
+    final note = await (db.select(db.notes)..where((n) => n.entityId.equals('e2'))).getSingle();
+    expect(note.content, 'contenido remoto');
+
+    final tag = await (db.select(db.tags)..where((t) => t.id.equals('t1'))).getSingle();
+    expect(tag.name, 'trabajo');
+
+    final entityTag = await (db.select(db.entityTags)
+          ..where((et) => et.entityId.equals('e1') & et.tagId.equals('t1')))
+        .getSingle();
+    expect(entityTag.dirty, isFalse);
+
+    final relation = await (db.select(db.relations)..where((r) => r.id.equals('r1'))).getSingle();
+    final localRelatedTo = localTypes.firstWhere((t) => t.key == 'related_to');
+    expect(relation.relationTypeId, localRelatedTo.id);
+
+    final task = await (db.select(db.tasks)..where((t) => t.id.equals('task1'))).getSingle();
+    expect(task.title, 'Tarea remota');
+
+    final link = await (db.select(db.activityLinks)..where((l) => l.id.equals('link1'))).getSingle();
+    expect(link.activityId, 'task1');
+
+    final inboxItem = await (db.select(db.inboxItems)..where((i) => i.id.equals('inbox1'))).getSingle();
+    expect(inboxItem.content, 'algo capturado');
+  });
+
+  test('pull no pisa una fila local dirty con una versión remota vieja', () async {
+    final entityId = await entities.create(
+      type: EntityType.project,
+      title: 'Título local sin pushear',
+    );
+
+    final fake = FakeSyncClient(
+      tables: {
+        'entities': [
+          {
+            'id': entityId,
+            'type': 'project',
+            'title': 'Título remoto viejo',
+            'description': null,
+            'status': 'active',
+            'created_at': '2020-01-01T00:00:00.000Z',
+            'updated_at': '2020-01-01T00:00:00.000Z',
+            'deleted_at': null,
+          },
+        ],
+      },
+    );
+
+    await pullRemoteData(db, userId: 'u1', client: fake);
+
+    final entityRow = await (db.select(db.entities)..where((e) => e.id.equals(entityId))).getSingle();
+    expect(entityRow.title, 'Título local sin pushear');
+    expect(entityRow.dirty, isTrue);
+  });
+
+  test('el soft-delete remoto de una Task se propaga a local vía pull', () async {
+    final taskRepo = TaskRepository(db);
+    final taskId = await taskRepo.create(title: 'Se borra en el otro dispositivo');
+    await pushDirtyData(db, userId: 'u1', client: FakeSyncClient());
+
+    final fake = FakeSyncClient(
+      tables: {
+        'tasks': [
+          {
+            'id': taskId,
+            'title': 'Se borra en el otro dispositivo',
+            'description': null,
+            'status': 'cancelled',
+            'priority': 'none',
+            'due_at': null,
+            'completed_at': null,
+            'created_at': '2026-01-01T00:00:00.000Z',
+            'updated_at': '2026-01-02T00:00:00.000Z',
+            'deleted_at': '2026-01-02T00:00:00.000Z',
+          },
+        ],
+      },
+    );
+    await pullRemoteData(db, userId: 'u1', client: fake);
+
+    final taskRow = await (db.select(db.tasks)..where((t) => t.id.equals(taskId))).getSingle();
+    expect(taskRow.deletedAt, isNotNull);
+    expect(taskRow.dirty, isFalse);
+  });
+
+  test('un fallo de red en una tabla no bloquea el pull de las demás', () async {
+    final fake = FakeSyncClient(
+      failSelectTables: {'entities'},
+      tables: {
+        'tags': [
+          {'id': 't1', 'name': 'trabajo'},
+        ],
+      },
+    );
+
+    await pullRemoteData(db, userId: 'u1', client: fake);
+
+    final tagRows = await db.select(db.tags).get();
+    expect(tagRows.any((t) => t.id == 't1'), isTrue);
+  });
+
+  test('syncNow pushea lo local dirty y pulea lo remoto en el mismo ciclo', () async {
+    final taskRepo = TaskRepository(db);
+    final localTaskId = await taskRepo.create(title: 'Tarea local sin pushear');
+
+    final fake = FakeSyncClient(
+      tables: {
+        'tasks': [
+          {
+            'id': 'task-remoto',
+            'title': 'Tarea del otro dispositivo',
+            'description': null,
+            'status': 'pending',
+            'priority': 'none',
+            'due_at': null,
+            'completed_at': null,
+            'created_at': '2026-01-01T00:00:00.000Z',
+            'updated_at': '2026-01-01T00:00:00.000Z',
+            'deleted_at': null,
+          },
+        ],
+      },
+    );
+
+    await syncNow(db, userId: 'u1', client: fake);
+
+    final pushedTask = fake.upserts.firstWhere(
+      (e) => e.key == 'tasks' && e.value['id'] == localTaskId,
+    );
+    expect(pushedTask.value['title'], 'Tarea local sin pushear');
+
+    final pulledTask = await (db.select(db.tasks)..where((t) => t.id.equals('task-remoto'))).getSingle();
+    expect(pulledTask.title, 'Tarea del otro dispositivo');
   });
 }

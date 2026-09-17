@@ -5,9 +5,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/database/app_database.dart';
 
-// NOTA: sigue siendo push-only (ni este proyecto ni OctoDash tuvieron nunca
-// pull/download) — patrón outbox: dirty flag, UUIDs de cliente,
+// Sync bidireccional — patrón outbox: dirty flag, UUIDs de cliente,
 // last-write-wins, retry en el próximo ciclo si falla el push.
+//
+// `syncNow` pushea primero y pulea después. El orden importa dos veces:
+// 1. Entre push y pull: pushear primero deja las filas propias limpias
+//    (`dirty=false`) antes de pulear, así el pull no las pisa con una
+//    versión remota vieja — a lo sumo hace un upsert no-op sobre la fila
+//    recién subida.
+// 2. Dentro de cada dirección: entities/tags primero (referenciadas por FK
+//    real del lado Supabase por relations/activity_links/entity_tags),
+//    relations/tasks después, y por último activity_links/entity_tags. Esto
+//    aplica igual de padre-antes-que-hijo en ambas direcciones.
 
 /// Puente al backend remoto — abstraído para poder testear el armado de
 /// payloads y la lógica de retry sin `Supabase.instance` real (no hay
@@ -29,11 +38,18 @@ class SupabaseSyncClient implements SyncClient {
   }
 }
 
-/// Punto de entrada del sync. Empuja, en orden, todo lo que esté `dirty`:
-/// entities y tags primero (referenciadas por FK real del lado Supabase por
-/// relations/activity_links/entity_tags), después relations/tasks, y por
-/// último activity_links/entity_tags. Si una fila con dependencia falla
-/// (ej. una relation cuya entity todavía no llegó), queda dirty y se
+/// Punto de entrada único para la UI: push y pull en un solo ciclo.
+Future<void> syncNow(
+  AppDatabase db, {
+  String? userId,
+  SyncClient? client,
+}) async {
+  await pushDirtyData(db, userId: userId, client: client);
+  await pullRemoteData(db, userId: userId, client: client);
+}
+
+/// Empuja, en orden, todo lo que esté `dirty`. Si una fila con dependencia
+/// falla (ej. una relation cuya entity todavía no llegó), queda dirty y se
 /// reintenta sola en el próximo ciclo — no hace falta atomicidad entre tablas.
 Future<void> pushDirtyData(
   AppDatabase db, {
@@ -58,10 +74,48 @@ Future<void> pushDirtyData(
   await _pushDirtyTasks(db, syncClient, effectiveUserId);
   await _pushDirtyActivityLinks(db, syncClient, effectiveUserId);
   await _pushDirtyEntityTags(db, syncClient, effectiveUserId);
+  await _pushDirtyInboxItems(db, syncClient, effectiveUserId);
 }
 
+/// Baja todo lo que haya en remoto y lo aplica a local, salvo que la fila
+/// local ya esté `dirty` (edición local sin pushear todavía — pisarla con
+/// una versión remota más vieja perdería esa edición; se resuelve sola en el
+/// próximo push, que la sube y la deja lista para el próximo pull).
+Future<void> pullRemoteData(
+  AppDatabase db, {
+  String? userId,
+  SyncClient? client,
+}) async {
+  final effectiveUserId =
+      userId ?? Supabase.instance.client.auth.currentUser?.id;
+  if (effectiveUserId == null) return; // sin sesión, no hay de dónde bajar
+  final syncClient = client ?? SupabaseSyncClient();
+
+  await _pullEntities(db, syncClient);
+  await _pullProjects(db, syncClient);
+  await _pullNotes(db, syncClient);
+  await _pullAreas(db, syncClient);
+  await _pullResources(db, syncClient);
+  await _pullPeople(db, syncClient);
+  await _pullHobbies(db, syncClient);
+  await _pullGoals(db, syncClient);
+  await _pullTags(db, syncClient);
+  await _pullRelations(db, syncClient);
+  await _pullTasks(db, syncClient);
+  await _pullActivityLinks(db, syncClient);
+  await _pullEntityTags(db, syncClient);
+  await _pullInboxItems(db, syncClient);
+}
+
+DateTime? _parseNullableDate(Object? value) =>
+    value == null ? null : DateTime.parse(value as String);
+
+// ---------------------------------------------------------------------------
+// PUSH
+// ---------------------------------------------------------------------------
+
 /// Loop compartido: query y mapeo son responsabilidad de cada `_pushDirtyX`,
-/// esto solo evita repetir 6 veces el mismo try/catch + marcar-limpio.
+/// esto solo evita repetir el mismo try/catch + marcar-limpio.
 Future<void> _pushDirty<D>({
   required List<D> rows,
   required SyncClient client,
@@ -293,7 +347,12 @@ Future<void> _pushDirtyRelations(
 
   final localTypes = await db.select(db.relationTypes).get();
   final keyByLocalId = {for (final t in localTypes) t.id: t.key};
-  final remoteTypes = await client.selectAll('relation_types');
+  List<Map<String, dynamic>> remoteTypes;
+  try {
+    remoteTypes = await client.selectAll('relation_types');
+  } catch (_) {
+    return; // sin red — relations queda dirty, se reintenta en el próximo ciclo
+  }
   final remoteIdByKey = {
     for (final t in remoteTypes) t['key'] as String: t['id'] as String,
   };
@@ -408,5 +467,384 @@ Future<void> _pushDirtyEntityTags(
               (r) => r.entityId.equals(et.entityId) & r.tagId.equals(et.tagId),
             ))
             .write(const EntityTagsCompanion(dirty: Value(false))),
+  );
+}
+
+Future<void> _pushDirtyInboxItems(
+  AppDatabase db,
+  SyncClient client,
+  String userId,
+) async {
+  final rows = await (db.select(
+    db.inboxItems,
+  )..where((i) => i.dirty.equals(true))).get();
+  await _pushDirty<InboxItemRow>(
+    rows: rows,
+    client: client,
+    remoteTable: 'inbox_items',
+    toRemoteRow: (i) => {
+      'id': i.id,
+      'user_id': userId,
+      'content': i.content,
+      'created_at': i.createdAt.toIso8601String(),
+      'deleted_at': i.deletedAt?.toIso8601String(),
+    },
+    markClean: (i) =>
+        (db.update(db.inboxItems)..where((r) => r.id.equals(i.id))).write(
+          const InboxItemsCompanion(dirty: Value(false)),
+        ),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PULL
+// ---------------------------------------------------------------------------
+
+/// Espejo de `_pushDirty`: recorre las filas remotas y aplica cada una a
+/// local vía upsert, salvo que su key ya esté en `dirtyKeys` (edición local
+/// pendiente de push — no se pisa con una versión remota vieja). Aislado en
+/// dos niveles, igual que el push: si `selectAll` falla (sin red) se
+/// reintenta esta tabla en el próximo ciclo sin tocar las demás; si una fila
+/// puntual falla al aplicarse local (ej. llegó antes que su FK) se reintenta
+/// esa fila sola, sin bloquear el resto de la tabla.
+Future<void> _pullTable({
+  required SyncClient client,
+  required String remoteTable,
+  required Set<String> dirtyKeys,
+  required String Function(Map<String, dynamic> row) keyOf,
+  required Future<void> Function(Map<String, dynamic> row) upsertLocal,
+}) async {
+  List<Map<String, dynamic>> remoteRows;
+  try {
+    remoteRows = await client.selectAll(remoteTable);
+  } catch (_) {
+    return;
+  }
+  for (final row in remoteRows) {
+    if (dirtyKeys.contains(keyOf(row))) continue;
+    try {
+      await upsertLocal(row);
+    } catch (_) {
+      // se reintenta sola en el próximo pull
+    }
+  }
+}
+
+Future<void> _pullEntities(AppDatabase db, SyncClient client) async {
+  final dirtyKeys = (await (db.select(
+    db.entities,
+  )..where((e) => e.dirty.equals(true))).get()).map((e) => e.id).toSet();
+  await _pullTable(
+    client: client,
+    remoteTable: 'entities',
+    dirtyKeys: dirtyKeys,
+    keyOf: (row) => row['id'] as String,
+    upsertLocal: (row) => db.into(db.entities).insertOnConflictUpdate(
+      EntitiesCompanion(
+        id: Value(row['id'] as String),
+        type: Value(row['type'] as String),
+        title: Value(row['title'] as String),
+        description: Value(row['description'] as String?),
+        status: Value(row['status'] as String),
+        createdAt: Value(DateTime.parse(row['created_at'] as String)),
+        updatedAt: Value(DateTime.parse(row['updated_at'] as String)),
+        deletedAt: Value(_parseNullableDate(row['deleted_at'])),
+        dirty: const Value(false),
+      ),
+    ),
+  );
+}
+
+Future<void> _pullProjects(AppDatabase db, SyncClient client) async {
+  final dirtyKeys = (await (db.select(
+    db.projects,
+  )..where((p) => p.dirty.equals(true))).get()).map((p) => p.entityId).toSet();
+  await _pullTable(
+    client: client,
+    remoteTable: 'projects',
+    dirtyKeys: dirtyKeys,
+    keyOf: (row) => row['entity_id'] as String,
+    upsertLocal: (row) => db.into(db.projects).insertOnConflictUpdate(
+      ProjectsCompanion(
+        entityId: Value(row['entity_id'] as String),
+        startedAt: Value(_parseNullableDate(row['started_at'])),
+        completedAt: Value(_parseNullableDate(row['completed_at'])),
+        dirty: const Value(false),
+      ),
+    ),
+  );
+}
+
+Future<void> _pullNotes(AppDatabase db, SyncClient client) async {
+  final dirtyKeys = (await (db.select(
+    db.notes,
+  )..where((n) => n.dirty.equals(true))).get()).map((n) => n.entityId).toSet();
+  await _pullTable(
+    client: client,
+    remoteTable: 'notes',
+    dirtyKeys: dirtyKeys,
+    keyOf: (row) => row['entity_id'] as String,
+    upsertLocal: (row) => db.into(db.notes).insertOnConflictUpdate(
+      NotesCompanion(
+        entityId: Value(row['entity_id'] as String),
+        content: Value(row['content'] as String?),
+        dirty: const Value(false),
+      ),
+    ),
+  );
+}
+
+// Areas/Resources/People/Hobbies/Goals: mismo caso que en el push, no tienen
+// campos propios — el pull solo necesita asegurar que la fila exista local.
+
+Future<void> _pullAreas(AppDatabase db, SyncClient client) async {
+  final dirtyKeys = (await (db.select(
+    db.areas,
+  )..where((a) => a.dirty.equals(true))).get()).map((a) => a.entityId).toSet();
+  await _pullTable(
+    client: client,
+    remoteTable: 'areas',
+    dirtyKeys: dirtyKeys,
+    keyOf: (row) => row['entity_id'] as String,
+    upsertLocal: (row) => db.into(db.areas).insertOnConflictUpdate(
+      AreasCompanion(
+        entityId: Value(row['entity_id'] as String),
+        dirty: const Value(false),
+      ),
+    ),
+  );
+}
+
+Future<void> _pullResources(AppDatabase db, SyncClient client) async {
+  final dirtyKeys = (await (db.select(
+    db.resources,
+  )..where((r) => r.dirty.equals(true))).get()).map((r) => r.entityId).toSet();
+  await _pullTable(
+    client: client,
+    remoteTable: 'resources',
+    dirtyKeys: dirtyKeys,
+    keyOf: (row) => row['entity_id'] as String,
+    upsertLocal: (row) => db.into(db.resources).insertOnConflictUpdate(
+      ResourcesCompanion(
+        entityId: Value(row['entity_id'] as String),
+        dirty: const Value(false),
+      ),
+    ),
+  );
+}
+
+Future<void> _pullPeople(AppDatabase db, SyncClient client) async {
+  final dirtyKeys = (await (db.select(
+    db.people,
+  )..where((p) => p.dirty.equals(true))).get()).map((p) => p.entityId).toSet();
+  await _pullTable(
+    client: client,
+    remoteTable: 'people',
+    dirtyKeys: dirtyKeys,
+    keyOf: (row) => row['entity_id'] as String,
+    upsertLocal: (row) => db.into(db.people).insertOnConflictUpdate(
+      PeopleCompanion(
+        entityId: Value(row['entity_id'] as String),
+        dirty: const Value(false),
+      ),
+    ),
+  );
+}
+
+Future<void> _pullHobbies(AppDatabase db, SyncClient client) async {
+  final dirtyKeys = (await (db.select(
+    db.hobbies,
+  )..where((h) => h.dirty.equals(true))).get()).map((h) => h.entityId).toSet();
+  await _pullTable(
+    client: client,
+    remoteTable: 'hobbies',
+    dirtyKeys: dirtyKeys,
+    keyOf: (row) => row['entity_id'] as String,
+    upsertLocal: (row) => db.into(db.hobbies).insertOnConflictUpdate(
+      HobbiesCompanion(
+        entityId: Value(row['entity_id'] as String),
+        dirty: const Value(false),
+      ),
+    ),
+  );
+}
+
+Future<void> _pullGoals(AppDatabase db, SyncClient client) async {
+  final dirtyKeys = (await (db.select(
+    db.goals,
+  )..where((g) => g.dirty.equals(true))).get()).map((g) => g.entityId).toSet();
+  await _pullTable(
+    client: client,
+    remoteTable: 'goals',
+    dirtyKeys: dirtyKeys,
+    keyOf: (row) => row['entity_id'] as String,
+    upsertLocal: (row) => db.into(db.goals).insertOnConflictUpdate(
+      GoalsCompanion(
+        entityId: Value(row['entity_id'] as String),
+        dirty: const Value(false),
+      ),
+    ),
+  );
+}
+
+Future<void> _pullTags(AppDatabase db, SyncClient client) async {
+  final dirtyKeys = (await (db.select(
+    db.tags,
+  )..where((t) => t.dirty.equals(true))).get()).map((t) => t.id).toSet();
+  await _pullTable(
+    client: client,
+    remoteTable: 'tags',
+    dirtyKeys: dirtyKeys,
+    keyOf: (row) => row['id'] as String,
+    upsertLocal: (row) => db.into(db.tags).insertOnConflictUpdate(
+      TagsCompanion(
+        id: Value(row['id'] as String),
+        name: Value(row['name'] as String),
+        dirty: const Value(false),
+      ),
+    ),
+  );
+}
+
+/// Espejo de la resolución que hace el push: acá el sentido es remoto -> key
+/// -> local. Mismo vocabulario fijo de 9 filas, misma resolución en memoria
+/// sin cache persistente.
+Future<void> _pullRelations(AppDatabase db, SyncClient client) async {
+  List<Map<String, dynamic>> remoteTypes;
+  try {
+    remoteTypes = await client.selectAll('relation_types');
+  } catch (_) {
+    return; // sin red — se reintenta esta tabla en el próximo ciclo
+  }
+  final keyByRemoteId = {
+    for (final t in remoteTypes) t['id'] as String: t['key'] as String,
+  };
+  final localTypes = await db.select(db.relationTypes).get();
+  final localIdByKey = {for (final t in localTypes) t.key: t.id};
+
+  final dirtyKeys = (await (db.select(
+    db.relations,
+  )..where((r) => r.dirty.equals(true))).get()).map((r) => r.id).toSet();
+
+  await _pullTable(
+    client: client,
+    remoteTable: 'relations',
+    dirtyKeys: dirtyKeys,
+    keyOf: (row) => row['id'] as String,
+    upsertLocal: (row) async {
+      final key = keyByRemoteId[row['relation_type_id'] as String];
+      final localTypeId = key == null ? null : localIdByKey[key];
+      if (localTypeId == null) return; // vocabulario no resuelto — reintenta el próximo pull
+      await db.into(db.relations).insertOnConflictUpdate(
+        RelationsCompanion(
+          id: Value(row['id'] as String),
+          sourceEntityId: Value(row['source_entity_id'] as String),
+          targetEntityId: Value(row['target_entity_id'] as String),
+          relationTypeId: Value(localTypeId),
+          note: Value(row['note'] as String?),
+          metadata: Value(
+            row['metadata'] == null ? null : jsonEncode(row['metadata']),
+          ),
+          createdAt: Value(DateTime.parse(row['created_at'] as String)),
+          deletedAt: Value(_parseNullableDate(row['deleted_at'])),
+          dirty: const Value(false),
+        ),
+      );
+    },
+  );
+}
+
+Future<void> _pullTasks(AppDatabase db, SyncClient client) async {
+  final dirtyKeys = (await (db.select(
+    db.tasks,
+  )..where((t) => t.dirty.equals(true))).get()).map((t) => t.id).toSet();
+  await _pullTable(
+    client: client,
+    remoteTable: 'tasks',
+    dirtyKeys: dirtyKeys,
+    keyOf: (row) => row['id'] as String,
+    upsertLocal: (row) => db.into(db.tasks).insertOnConflictUpdate(
+      TasksCompanion(
+        id: Value(row['id'] as String),
+        title: Value(row['title'] as String),
+        description: Value(row['description'] as String?),
+        status: Value(row['status'] as String),
+        priority: Value(row['priority'] as String),
+        dueAt: Value(_parseNullableDate(row['due_at'])),
+        completedAt: Value(_parseNullableDate(row['completed_at'])),
+        createdAt: Value(DateTime.parse(row['created_at'] as String)),
+        updatedAt: Value(DateTime.parse(row['updated_at'] as String)),
+        deletedAt: Value(_parseNullableDate(row['deleted_at'])),
+        dirty: const Value(false),
+      ),
+    ),
+  );
+}
+
+Future<void> _pullActivityLinks(AppDatabase db, SyncClient client) async {
+  final dirtyKeys = (await (db.select(
+    db.activityLinks,
+  )..where((l) => l.dirty.equals(true))).get()).map((l) => l.id).toSet();
+  await _pullTable(
+    client: client,
+    remoteTable: 'activity_links',
+    dirtyKeys: dirtyKeys,
+    keyOf: (row) => row['id'] as String,
+    upsertLocal: (row) => db.into(db.activityLinks).insertOnConflictUpdate(
+      ActivityLinksCompanion(
+        id: Value(row['id'] as String),
+        activityType: Value(row['activity_type'] as String),
+        activityId: Value(row['activity_id'] as String),
+        entityId: Value(row['entity_id'] as String),
+        linkType: Value(row['link_type'] as String),
+        createdAt: Value(DateTime.parse(row['created_at'] as String)),
+        deletedAt: Value(_parseNullableDate(row['deleted_at'])),
+        dirty: const Value(false),
+      ),
+    ),
+  );
+}
+
+Future<void> _pullEntityTags(AppDatabase db, SyncClient client) async {
+  final dirtyKeys = (await (db.select(
+    db.entityTags,
+  )..where((et) => et.dirty.equals(true))).get())
+      .map((et) => '${et.entityId}::${et.tagId}')
+      .toSet();
+  await _pullTable(
+    client: client,
+    remoteTable: 'entity_tags',
+    dirtyKeys: dirtyKeys,
+    keyOf: (row) => '${row['entity_id']}::${row['tag_id']}',
+    upsertLocal: (row) => db.into(db.entityTags).insertOnConflictUpdate(
+      EntityTagsCompanion(
+        entityId: Value(row['entity_id'] as String),
+        tagId: Value(row['tag_id'] as String),
+        createdAt: Value(DateTime.parse(row['created_at'] as String)),
+        deletedAt: Value(_parseNullableDate(row['deleted_at'])),
+        dirty: const Value(false),
+      ),
+    ),
+  );
+}
+
+Future<void> _pullInboxItems(AppDatabase db, SyncClient client) async {
+  final dirtyKeys = (await (db.select(
+    db.inboxItems,
+  )..where((i) => i.dirty.equals(true))).get()).map((i) => i.id).toSet();
+  await _pullTable(
+    client: client,
+    remoteTable: 'inbox_items',
+    dirtyKeys: dirtyKeys,
+    keyOf: (row) => row['id'] as String,
+    upsertLocal: (row) => db.into(db.inboxItems).insertOnConflictUpdate(
+      InboxItemsCompanion(
+        id: Value(row['id'] as String),
+        content: Value(row['content'] as String),
+        createdAt: Value(DateTime.parse(row['created_at'] as String)),
+        deletedAt: Value(_parseNullableDate(row['deleted_at'])),
+        dirty: const Value(false),
+      ),
+    ),
   );
 }
