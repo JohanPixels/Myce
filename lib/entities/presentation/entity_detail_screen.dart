@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../activities/data/task_repository_provider.dart';
 import '../../activities/domain/task_enums.dart';
 import '../../activities/presentation/add_task_sheet.dart';
-import '../../activities/presentation/task_detail_screen.dart';
 import '../../core/database/app_database.dart';
+import '../../core/navigation/navigation_helpers.dart';
 import '../../relations/data/relation_repository.dart';
 import '../../relations/data/relation_repository_provider.dart';
 import '../../relations/presentation/add_relation_sheet.dart';
 import '../../tags/data/tag_repository.dart';
 import '../../tags/data/tag_repository_provider.dart';
+import '../data/entity_repository.dart';
 import '../data/entity_repository_provider.dart';
 import '../domain/entity_type.dart';
 
@@ -27,6 +29,8 @@ class EntityDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
+  final _titleController = TextEditingController();
+  bool _titleDirty = false;
   final _descriptionController = TextEditingController();
   bool _descriptionDirty = false;
   final _noteContentController = TextEditingController();
@@ -51,9 +55,45 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
 
   @override
   void dispose() {
+    _titleController.dispose();
     _descriptionController.dispose();
     _noteContentController.dispose();
     super.dispose();
+  }
+
+  Future<void> _saveTitle(EntityRepository entityRepo, String id) async {
+    final value = _titleController.text.trim();
+    if (value.isEmpty) {
+      // se resincroniza con el título actual (no vacío) en el próximo build
+      setState(() => _titleDirty = false);
+      return;
+    }
+    await entityRepo.updateTitle(id, value);
+    setState(() => _titleDirty = false);
+  }
+
+  Future<void> _confirmarEliminar(BuildContext context) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Eliminar esto?'),
+        content: const Text('Esta acción no se puede deshacer desde la app.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado == true && context.mounted) {
+      await ref.read(entityRepositoryProvider).delete(widget.entityId);
+      if (context.mounted) context.pop();
+    }
   }
 
   String _formatDate(DateTime d) =>
@@ -92,6 +132,9 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
             return const Center(child: Text('Esto ya no existe'));
           }
           final type = entity.type.toEntityType();
+          if (!_titleDirty && _titleController.text != entity.title) {
+            _titleController.text = entity.title;
+          }
           if (!_descriptionDirty &&
               _descriptionController.text != (entity.description ?? '')) {
             _descriptionController.text = entity.description ?? '';
@@ -100,9 +143,28 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Text(
-                entity.title,
-                style: Theme.of(context).textTheme.headlineSmall,
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _titleController,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      onChanged: (_) => setState(() => _titleDirty = true),
+                      onSubmitted: (_) => _saveTitle(entityRepo, entity.id),
+                    ),
+                  ),
+                  if (_titleDirty)
+                    IconButton(
+                      icon: const Icon(Icons.check),
+                      tooltip: 'Guardar nombre',
+                      onPressed: () => _saveTitle(entityRepo, entity.id),
+                    ),
+                ],
               ),
               const SizedBox(height: 4),
               Text(
@@ -360,11 +422,7 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
                         contentPadding: EdgeInsets.zero,
                         title: Text(t.title),
                         subtitle: Text(t.status.toTaskStatus().label),
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => TaskDetailScreen(taskId: t.id),
-                          ),
-                        ),
+                        onTap: () => pushTaskDetail(context, t.id),
                       );
                     }).toList(),
                   );
@@ -417,17 +475,23 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
                           subtitle: Text(
                             r.note == null ? r.label : '${r.label} · ${r.note}',
                           ),
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  EntityDetailScreen(entityId: r.otherEntityId),
-                            ),
-                          ),
+                          onTap: () =>
+                              pushEntityDetail(context, r.otherEntityId),
                         ),
                       );
                     }).toList(),
                   );
                 },
+              ),
+
+              const SizedBox(height: 32),
+              TextButton.icon(
+                onPressed: () => _confirmarEliminar(context),
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                label: const Text(
+                  'Eliminar',
+                  style: TextStyle(color: Colors.red),
+                ),
               ),
             ],
           );

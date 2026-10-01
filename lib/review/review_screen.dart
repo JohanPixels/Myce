@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/database/app_database.dart';
+import '../core/navigation/navigation_helpers.dart';
 import '../entities/data/entity_repository_provider.dart';
 import '../entities/domain/entity_type.dart';
-import '../entities/presentation/entity_detail_screen.dart';
 
 const _diasEstancado = 7;
 
@@ -31,44 +31,41 @@ class ReviewScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Revisión semanal')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _Seccion(
-            titulo: '🟢 Activos',
-            provider: entitiesActivasProvider,
-            vacio: 'No tienes entities activas',
-          ),
-          const SizedBox(height: 24),
-          _Seccion(
-            titulo: '🟡 Estancados (+$_diasEstancado días sin tocar)',
-            provider: entitiesEstancadasProvider,
-            vacio: 'Nada estancado — vas al día',
-            mostrarAcciones: true,
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '🎲 Para tu tiempo libre',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: () => ref.invalidate(wishlistSugerenciasProvider),
-              ),
-            ],
-          ),
-          _Seccion(
-            titulo: '',
-            provider: wishlistSugerenciasProvider,
-            vacio: 'Nada en tu wishlist todavía',
-          ),
-        ],
-      ),
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _Seccion(
+          titulo: '🟢 Activos',
+          provider: entitiesActivasProvider,
+          vacio: 'No tienes entities activas',
+        ),
+        const SizedBox(height: 24),
+        _Seccion(
+          titulo: '🟡 Estancados (+$_diasEstancado días sin tocar)',
+          provider: entitiesEstancadasProvider,
+          vacio: 'Nada estancado — vas al día',
+          mostrarAcciones: true,
+        ),
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '🎲 Para tu tiempo libre',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () => ref.invalidate(wishlistSugerenciasProvider),
+            ),
+          ],
+        ),
+        _Seccion(
+          titulo: '',
+          provider: wishlistSugerenciasProvider,
+          vacio: 'Nada en tu wishlist todavía',
+        ),
+      ],
     );
   }
 }
@@ -119,11 +116,7 @@ class _Seccion extends ConsumerWidget {
                   child: ListTile(
                     title: Text(e.title),
                     subtitle: Text(e.type.toEntityType().label),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => EntityDetailScreen(entityId: e.id),
-                      ),
-                    ),
+                    onTap: () => pushEntityDetail(context, e.id),
                     trailing: mostrarAcciones
                         ? PopupMenuButton<String>(
                             onSelected: (accion) {

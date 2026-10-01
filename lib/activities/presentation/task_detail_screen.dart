@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/database/app_database.dart';
+import '../../core/navigation/navigation_helpers.dart';
 import '../../entities/domain/entity_type.dart';
-import '../../entities/presentation/entity_detail_screen.dart';
 import '../data/task_repository_provider.dart';
 import '../domain/task_enums.dart';
 import 'link_entity_sheet.dart';
@@ -50,7 +51,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     );
     if (confirmado == true && context.mounted) {
       await ref.read(taskRepositoryProvider).delete(widget.taskId);
-      if (context.mounted) Navigator.of(context).pop();
+      if (context.mounted) context.pop();
     }
   }
 
@@ -208,12 +209,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                         tooltip: 'Desvincular',
                         onPressed: () => taskRepo.unlinkFromEntity(task.id),
                       ),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              EntityDetailScreen(entityId: entity.id),
-                        ),
-                      ),
+                      onTap: () => pushEntityDetail(context, entity.id),
                     ),
                   );
                 },

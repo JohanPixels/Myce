@@ -110,8 +110,9 @@ class AppDatabase extends _$AppDatabase {
             ..where((e) => e.type.equals(type) & e.deletedAt.isNull()))
           .watch();
 
-  Stream<EntityRow?> watchEntityById(String id) =>
-      (select(entities)..where((e) => e.id.equals(id))).watchSingleOrNull();
+  Stream<EntityRow?> watchEntityById(String id) => (select(
+    entities,
+  )..where((e) => e.id.equals(id) & e.deletedAt.isNull())).watchSingleOrNull();
 
   Future<List<EntityRow>> searchEntities(String query) {
     final pattern = '%$query%';

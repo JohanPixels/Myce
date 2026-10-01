@@ -2,22 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../inbox/inbox_screen.dart';
-import '../../entities/presentation/category_screen.dart';
-import '../../entities/domain/entity_type.dart';
-import '../../activities/presentation/task_list_screen.dart';
 import '../../capture/capture_sheet.dart';
-import '../../review/review_screen.dart';
+import '../../entities/data/entity_repository_provider.dart';
+import '../../entities/presentation/entity_search_delegate.dart';
 import '../../features/sync/sync_button.dart';
 import '../../features/sync/sync_repository.dart';
 import '../database/database_provider.dart';
-
-class HomeShell extends ConsumerStatefulWidget {
-  const HomeShell({super.key});
-  @override
-  ConsumerState<HomeShell> createState() => _HomeShellState();
-}
+import 'app_sections.dart';
 
 /// Sincroniza sola, sin depender de que el usuario toque el botón manual:
 /// una vez al entrar (hidrata un dispositivo nuevo con lo que ya existe en
@@ -31,24 +24,25 @@ class HomeShell extends ConsumerStatefulWidget {
 const _syncOnResumeDebounce = Duration(seconds: 5);
 const _periodicSyncInterval = Duration(minutes: 3);
 
-class _HomeShellState extends ConsumerState<HomeShell>
+/// Shell persistente del carrusel + FAB, montado por `StatefulShellRoute`
+/// (ver app_router.dart). Cada rama tiene su propio `Navigator` interno:
+/// empujar un detalle de Entity o Task queda anidado DENTRO de la rama, así
+/// que este `Scaffold` (tab strip + FAB) sigue visible siempre, incluso
+/// adentro de una nota — y arrastrar el dedo hacia los costados cambia de
+/// rama sin perder en qué pantalla estabas parado adentro de cada una.
+class AppShell extends ConsumerStatefulWidget {
+  const AppShell({super.key, required this.navigationShell});
+
+  final StatefulNavigationShell navigationShell;
+
+  @override
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
-  int _index = 0;
   Timer? _periodicSync;
   DateTime? _lastSyncAttempt;
-  static const _screens = [
-    InboxScreen(),
-    TaskListScreen(),
-    CategoryScreen(type: EntityType.project, titulo: 'Proyectos'),
-    CategoryScreen(type: EntityType.area, titulo: 'Áreas'),
-    CategoryScreen(
-      type: EntityType.resource,
-      titulo: 'Recursos',
-      showWishlistFilter: true,
-    ),
-    CategoryScreen(type: EntityType.note, titulo: 'Notas'),
-    ReviewScreen(),
-  ];
 
   @override
   void initState() {
@@ -85,40 +79,121 @@ class _HomeShellState extends ConsumerState<HomeShell>
     syncNow(ref.read(databaseProvider));
   }
 
+  Future<void> _buscar(BuildContext context) async {
+    final id = await showSearch<String?>(
+      context: context,
+      delegate: EntitySearchDelegate(ref.read(entityRepositoryProvider)),
+    );
+    if (id != null && context.mounted) {
+      final rama = appSections[widget.navigationShell.currentIndex].path;
+      context.push('/$rama/entity/$id');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('OctoDash'),
-        actions: const [SyncButton()],
-      ),
-      body: IndexedStack(index: _index, children: _screens),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => mostrarCapturaSheet(context, ref),
-        child: const Icon(Icons.add),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.inbox), label: 'Inbox'),
-          NavigationDestination(
-            icon: Icon(Icons.check_circle_outline),
-            label: 'Tareas',
+    final index = widget.navigationShell.currentIndex;
+    final colors = Theme.of(context).colorScheme;
+    return DefaultTabController(
+      length: appSections.length,
+      initialIndex: index,
+      child: _TabBranchSync(
+        navigationShell: widget.navigationShell,
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(appSections[index].titulo),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.search),
+                tooltip: 'Buscar',
+                onPressed: () => _buscar(context),
+              ),
+              const SyncButton(),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.rocket_launch),
-            label: 'Proyectos',
+          body: widget.navigationShell,
+          floatingActionButton: FloatingActionButton(
+            onPressed: () => mostrarCapturaSheet(context, ref),
+            child: const Icon(Icons.add),
           ),
-          NavigationDestination(icon: Icon(Icons.landscape), label: 'Áreas'),
-          NavigationDestination(icon: Icon(Icons.menu_book), label: 'Recursos'),
-          NavigationDestination(icon: Icon(Icons.notes), label: 'Notas'),
-          NavigationDestination(
-            icon: Icon(Icons.fact_check),
-            label: 'Revisión',
+          bottomNavigationBar: Material(
+            color: colors.surface,
+            elevation: 3,
+            child: SafeArea(
+              top: false,
+              child: TabBar(
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                labelColor: colors.primary,
+                unselectedLabelColor: colors.onSurfaceVariant,
+                indicatorColor: colors.primary,
+                tabs: [
+                  for (final seccion in appSections)
+                    Tab(icon: Icon(seccion.icon), text: seccion.titulo),
+                ],
+              ),
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
+}
+
+/// Mantiene en sync el `TabController` que crea `DefaultTabController` (el
+/// mismo que usan el `TabBar` de acá arriba y el `TabBarView` armado en
+/// `swipeableBranchContainer`, que vive en otra parte del árbol de widgets)
+/// con `navigationShell.currentIndex` — necesario para que un swipe o un
+/// tap en la tira de pestañas también actualice la ubicación real de
+/// `go_router` (si no, `pushEntityDetail`/`pushTaskDetail` podrían empujar
+/// el detalle bajo la rama vieja en vez de la que se ve en pantalla).
+class _TabBranchSync extends StatefulWidget {
+  const _TabBranchSync({required this.navigationShell, required this.child});
+
+  final StatefulNavigationShell navigationShell;
+  final Widget child;
+
+  @override
+  State<_TabBranchSync> createState() => _TabBranchSyncState();
+}
+
+class _TabBranchSyncState extends State<_TabBranchSync> {
+  TabController? _controller;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final controller = DefaultTabController.of(context);
+    if (!identical(controller, _controller)) {
+      _controller?.removeListener(_onTabChanged);
+      _controller = controller..addListener(_onTabChanged);
+    }
+  }
+
+  void _onTabChanged() {
+    final controller = _controller!;
+    if (!controller.indexIsChanging &&
+        controller.index != widget.navigationShell.currentIndex) {
+      widget.navigationShell.goBranch(controller.index);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _TabBranchSync oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final controller = _controller;
+    if (controller != null &&
+        controller.index != widget.navigationShell.currentIndex) {
+      controller.animateTo(widget.navigationShell.currentIndex);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_onTabChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

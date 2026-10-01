@@ -5,31 +5,49 @@ import '../../activities/domain/task_enums.dart';
 import '../../inbox/data/inbox_repository_provider.dart';
 import '../domain/entity_type.dart';
 
-const _subtiposWishlist = {
-  'juego': 'Juegos',
-  'musica': 'Música',
-  'pelicula': 'Películas',
-  'libro': 'Libros',
-};
+/// Resultado de clasificar un InboxItem — lo que se creó (Entity o Task) y
+/// su id, para que quien llamó al sheet pueda ofrecer un acceso directo
+/// ("Ver") sin que el item se sienta perdido tras cambiar de pantalla.
+class ClassifyResult {
+  const ClassifyResult({
+    required this.id,
+    required this.isTask,
+    required this.label,
+  });
 
-Future<void> mostrarClasificarSheet(
+  final String id;
+  final bool isTask;
+  final String label;
+}
+
+Future<ClassifyResult?> mostrarClasificarSheet(
   BuildContext context,
   WidgetRef ref,
   String inboxItemId,
 ) {
   EntityType? tipoSeleccionado;
   bool esWishlist = false;
-  String? subtipoSeleccionado;
+  final tagsWishlist = <String>[];
+  final tagController = TextEditingController();
   bool esTarea = false;
   TaskPriority prioridadSeleccionada = TaskPriority.none;
   DateTime? fechaLimite;
 
-  return showModalBottomSheet(
+  return showModalBottomSheet<ClassifyResult>(
     context: context,
     isScrollControlled: true,
     builder: (ctx) {
       return StatefulBuilder(
         builder: (ctx, setState) {
+          void agregarTag() {
+            final value = tagController.text.trim();
+            if (value.isEmpty || tagsWishlist.contains(value)) return;
+            setState(() {
+              tagsWishlist.add(value);
+              tagController.clear();
+            });
+          }
+
           return Padding(
             padding: EdgeInsets.only(
               left: 16,
@@ -60,7 +78,7 @@ Future<void> mostrarClasificarSheet(
                             tipoSeleccionado = tipo;
                             if (tipo != EntityType.resource) {
                               esWishlist = false;
-                              subtipoSeleccionado = null;
+                              tagsWishlist.clear();
                             }
                           }),
                         );
@@ -72,7 +90,7 @@ Future<void> mostrarClasificarSheet(
                           esTarea = true;
                           tipoSeleccionado = null;
                           esWishlist = false;
-                          subtipoSeleccionado = null;
+                          tagsWishlist.clear();
                         }),
                       ),
                     ],
@@ -144,7 +162,6 @@ Future<void> mostrarClasificarSheet(
                           selected: !esWishlist,
                           onSelected: (_) => setState(() {
                             esWishlist = false;
-                            subtipoSeleccionado = null;
                           }),
                         ),
                         ChoiceChip(
@@ -158,41 +175,69 @@ Future<void> mostrarClasificarSheet(
                   if (esWishlist) ...[
                     const SizedBox(height: 16),
                     Text(
-                      '¿Qué tipo?',
+                      'Tags (opcional) — ej. web, curso, video, investigación',
                       style: Theme.of(ctx).textTheme.titleSmall,
                     ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
-                      children: _subtiposWishlist.entries.map((e) {
-                        return ChoiceChip(
-                          label: Text(e.value),
-                          selected: subtipoSeleccionado == e.key,
-                          onSelected: (_) =>
-                              setState(() => subtipoSeleccionado = e.key),
-                        );
-                      }).toList(),
+                      runSpacing: 8,
+                      children: [
+                        ...tagsWishlist.map((t) {
+                          return Chip(
+                            label: Text(t),
+                            onDeleted: () =>
+                                setState(() => tagsWishlist.remove(t)),
+                          );
+                        }),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: tagController,
+                            decoration: const InputDecoration(
+                              hintText: 'Agregar tag...',
+                              isDense: true,
+                            ),
+                            onSubmitted: (_) => agregarTag(),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.add),
+                          tooltip: 'Agregar tag',
+                          onPressed: agregarTag,
+                        ),
+                      ],
                     ),
                   ],
                   const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed:
-                          esTarea ||
-                              (tipoSeleccionado != null &&
-                                  (!esWishlist || subtipoSeleccionado != null))
-                          ? () {
+                      onPressed: esTarea || tipoSeleccionado != null
+                          ? () async {
                               if (esTarea) {
-                                ref
+                                final taskId = await ref
                                     .read(inboxRepositoryProvider)
                                     .classifyAsTask(
                                       inboxItemId,
                                       priority: prioridadSeleccionada,
                                       dueAt: fechaLimite,
                                     );
+                                if (ctx.mounted) {
+                                  Navigator.of(ctx).pop(
+                                    ClassifyResult(
+                                      id: taskId,
+                                      isTask: true,
+                                      label: 'Tarea',
+                                    ),
+                                  );
+                                }
                               } else {
-                                ref
+                                final entityId = await ref
                                     .read(inboxRepositoryProvider)
                                     .classify(
                                       inboxItemId,
@@ -200,12 +245,18 @@ Future<void> mostrarClasificarSheet(
                                       status: esWishlist
                                           ? EntityStatus.someday
                                           : EntityStatus.active,
-                                      tags: subtipoSeleccionado != null
-                                          ? [subtipoSeleccionado!]
-                                          : const [],
+                                      tags: tagsWishlist,
                                     );
+                                if (ctx.mounted) {
+                                  Navigator.of(ctx).pop(
+                                    ClassifyResult(
+                                      id: entityId,
+                                      isTask: false,
+                                      label: tipoSeleccionado!.label,
+                                    ),
+                                  );
+                                }
                               }
-                              Navigator.of(ctx).pop();
                             }
                           : null,
                       child: const Text('Guardar'),

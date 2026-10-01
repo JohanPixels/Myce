@@ -119,6 +119,16 @@ class EntityRepository {
     );
   }
 
+  Future<void> updateTitle(String id, String title) {
+    return (_db.update(_db.entities)..where((e) => e.id.equals(id))).write(
+      EntitiesCompanion(
+        title: Value(title),
+        updatedAt: Value(DateTime.now()),
+        dirty: const Value(true),
+      ),
+    );
+  }
+
   Future<void> updateDescription(String id, String? description) {
     return (_db.update(_db.entities)..where((e) => e.id.equals(id))).write(
       EntitiesCompanion(
@@ -127,6 +137,45 @@ class EntityRepository {
         dirty: const Value(true),
       ),
     );
+  }
+
+  /// Soft-delete de la Entity y de todo lo que apunta a ella (`relations`
+  /// como source o target, `entity_tags`, `activity_links`) — la FK con
+  /// `onDelete: cascade` de esas tablas no ayuda acá porque esto es un
+  /// soft-delete (UPDATE, no DELETE real): mismo motivo por el que
+  /// `TaskRepository.delete()` limpia `activity_links` a mano en vez de
+  /// confiar en la base de datos (deuda técnica documentada en
+  /// docs/fuente_de_verdad.md §7.3). Las 7 tablas de tipo no tienen
+  /// `deletedAt` propio (nada las borra hoy) así que quedan huérfanas sin
+  /// problema — nada las consulta fuera del id de su Entity.
+  Future<void> delete(String id) {
+    return _db.transaction(() async {
+      final ahora = DateTime.now();
+      await (_db.update(_db.relations)..where(
+            (r) => r.sourceEntityId.equals(id) | r.targetEntityId.equals(id),
+          ))
+          .write(
+            RelationsCompanion(
+              deletedAt: Value(ahora),
+              dirty: const Value(true),
+            ),
+          );
+      await (_db.update(_db.entityTags)..where((t) => t.entityId.equals(id)))
+          .write(
+            EntityTagsCompanion(
+              deletedAt: Value(ahora),
+              dirty: const Value(true),
+            ),
+          );
+      await (_db.update(
+        _db.activityLinks,
+      )..where((l) => l.entityId.equals(id))).write(
+        ActivityLinksCompanion(deletedAt: Value(ahora), dirty: const Value(true)),
+      );
+      await (_db.update(_db.entities)..where((e) => e.id.equals(id))).write(
+        EntitiesCompanion(deletedAt: Value(ahora), dirty: const Value(true)),
+      );
+    });
   }
 
   Future<List<EntityRow>> search(String query, {String? excludeId}) async {

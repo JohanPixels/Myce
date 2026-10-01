@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/database/app_database.dart';
+import '../../core/navigation/navigation_helpers.dart';
 import '../data/task_repository.dart';
 import '../data/task_repository_provider.dart';
 import '../domain/task_enums.dart';
-import 'task_detail_screen.dart';
 
 class TaskListScreen extends ConsumerStatefulWidget {
   const TaskListScreen({super.key});
@@ -59,9 +59,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
             .map((s) => PopupMenuItem(value: s, child: Text(s.label)))
             .toList(),
       ),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => TaskDetailScreen(taskId: task.id)),
-      ),
+      onTap: () => pushTaskDetail(context, task.id),
     );
   }
 
@@ -69,81 +67,77 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   Widget build(BuildContext context) {
     final repo = ref.watch(taskRepositoryProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Tareas')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment(value: false, label: Text('Todas')),
-                ButtonSegment(value: true, label: Text('Hoy y vencidas')),
-              ],
-              selected: {_soloHoy},
-              onSelectionChanged: (s) => setState(() => _soloHoy = s.first),
-            ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: false, label: Text('Todas')),
+              ButtonSegment(value: true, label: Text('Hoy y vencidas')),
+            ],
+            selected: {_soloHoy},
+            onSelectionChanged: (s) => setState(() => _soloHoy = s.first),
           ),
-          Expanded(
-            child: StreamBuilder<List<TaskRow>>(
-              stream: _soloHoy ? repo.watchDueTodayOrOverdue() : repo.watchAll(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final tasks = snapshot.data!;
-                if (tasks.isEmpty) {
-                  return Center(
-                    child: Text(
-                      _soloHoy ? 'Nada para hoy 🎉' : 'No hay tareas todavía',
-                    ),
-                  );
-                }
-                if (_soloHoy) {
-                  return ListView.builder(
-                    itemCount: tasks.length,
-                    itemBuilder: (context, i) => _buildTile(tasks[i], repo),
-                  );
-                }
-                final activas =
-                    tasks
-                        .where(
-                          (t) =>
-                              t.status == 'pending' ||
-                              t.status == 'inProgress',
-                        )
-                        .toList()
-                      ..sort(_compararActivas);
-                final terminadas = tasks
-                    .where(
-                      (t) => t.status == 'completed' || t.status == 'cancelled',
-                    )
-                    .toList();
-                return ListView(
-                  children: [
-                    if (activas.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Text('Nada pendiente 🎉'),
-                      )
-                    else
-                      ...activas.map((t) => _buildTile(t, repo)),
-                    if (terminadas.isNotEmpty)
-                      ExpansionTile(
-                        title: Text(
-                          'Completadas y canceladas (${terminadas.length})',
-                        ),
-                        children: terminadas
-                            .map((t) => _buildTile(t, repo))
-                            .toList(),
-                      ),
-                  ],
+        ),
+        Expanded(
+          child: StreamBuilder<List<TaskRow>>(
+            stream: _soloHoy ? repo.watchDueTodayOrOverdue() : repo.watchAll(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final tasks = snapshot.data!;
+              if (tasks.isEmpty) {
+                return Center(
+                  child: Text(
+                    _soloHoy ? 'Nada para hoy 🎉' : 'No hay tareas todavía',
+                  ),
                 );
-              },
-            ),
+              }
+              if (_soloHoy) {
+                return ListView.builder(
+                  itemCount: tasks.length,
+                  itemBuilder: (context, i) => _buildTile(tasks[i], repo),
+                );
+              }
+              final activas =
+                  tasks
+                      .where(
+                        (t) =>
+                            t.status == 'pending' || t.status == 'inProgress',
+                      )
+                      .toList()
+                    ..sort(_compararActivas);
+              final terminadas = tasks
+                  .where(
+                    (t) => t.status == 'completed' || t.status == 'cancelled',
+                  )
+                  .toList();
+              return ListView(
+                children: [
+                  if (activas.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text('Nada pendiente 🎉'),
+                    )
+                  else
+                    ...activas.map((t) => _buildTile(t, repo)),
+                  if (terminadas.isNotEmpty)
+                    ExpansionTile(
+                      title: Text(
+                        'Completadas y canceladas (${terminadas.length})',
+                      ),
+                      children: terminadas
+                          .map((t) => _buildTile(t, repo))
+                          .toList(),
+                    ),
+                ],
+              );
+            },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
