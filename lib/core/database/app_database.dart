@@ -39,26 +39,23 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (Migrator m) async {
       await m.createAll();
       await batch((b) {
-        b.insertAll(
-          relationTypes,
-          [
-            for (final (key, label, inverseLabel, directed)
-                in initialRelationTypes)
-              RelationTypesCompanion.insert(
-                key: key,
-                label: label,
-                inverseLabel: inverseLabel,
-                directed: Value(directed),
-              ),
-          ],
-        );
+        b.insertAll(relationTypes, [
+          for (final (key, label, inverseLabel, directed)
+              in initialRelationTypes)
+            RelationTypesCompanion.insert(
+              key: key,
+              label: label,
+              inverseLabel: inverseLabel,
+              directed: Value(directed),
+            ),
+        ]);
       });
     },
     onUpgrade: (Migrator m, int from, int to) async {
@@ -99,16 +96,21 @@ class AppDatabase extends _$AppDatabase {
             );
         ''');
       }
+      if (from < 5) {
+        // Apariencia de Project (emoji + color) para la pantalla propia de
+        // proyectos.
+        await m.addColumn(projects, projects.emoji);
+        await m.addColumn(projects, projects.color);
+      }
     },
   );
 
   Stream<List<InboxItemRow>> watchInboxItems() =>
       (select(inboxItems)..where((i) => i.deletedAt.isNull())).watch();
 
-  Stream<List<EntityRow>> watchEntitiesByType(String type) =>
-      (select(entities)
-            ..where((e) => e.type.equals(type) & e.deletedAt.isNull()))
-          .watch();
+  Stream<List<EntityRow>> watchEntitiesByType(String type) => (select(
+    entities,
+  )..where((e) => e.type.equals(type) & e.deletedAt.isNull())).watch();
 
   Stream<EntityRow?> watchEntityById(String id) => (select(
     entities,

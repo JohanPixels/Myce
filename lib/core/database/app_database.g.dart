@@ -601,6 +601,24 @@ class $ProjectsTable extends Projects
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _emojiMeta = const VerificationMeta('emoji');
+  @override
+  late final GeneratedColumn<String> emoji = GeneratedColumn<String>(
+    'emoji',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _colorMeta = const VerificationMeta('color');
+  @override
+  late final GeneratedColumn<String> color = GeneratedColumn<String>(
+    'color',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _dirtyMeta = const VerificationMeta('dirty');
   @override
   late final GeneratedColumn<bool> dirty = GeneratedColumn<bool>(
@@ -619,6 +637,8 @@ class $ProjectsTable extends Projects
     entityId,
     startedAt,
     completedAt,
+    emoji,
+    color,
     dirty,
   ];
   @override
@@ -656,6 +676,18 @@ class $ProjectsTable extends Projects
         ),
       );
     }
+    if (data.containsKey('emoji')) {
+      context.handle(
+        _emojiMeta,
+        emoji.isAcceptableOrUnknown(data['emoji']!, _emojiMeta),
+      );
+    }
+    if (data.containsKey('color')) {
+      context.handle(
+        _colorMeta,
+        color.isAcceptableOrUnknown(data['color']!, _colorMeta),
+      );
+    }
     if (data.containsKey('dirty')) {
       context.handle(
         _dirtyMeta,
@@ -683,6 +715,14 @@ class $ProjectsTable extends Projects
         DriftSqlType.dateTime,
         data['${effectivePrefix}completed_at'],
       ),
+      emoji: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}emoji'],
+      ),
+      color: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}color'],
+      ),
       dirty: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}dirty'],
@@ -700,11 +740,15 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
   final String entityId;
   final DateTime? startedAt;
   final DateTime? completedAt;
+  final String? emoji;
+  final String? color;
   final bool dirty;
   const ProjectRow({
     required this.entityId,
     this.startedAt,
     this.completedAt,
+    this.emoji,
+    this.color,
     required this.dirty,
   });
   @override
@@ -716,6 +760,12 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
     }
     if (!nullToAbsent || completedAt != null) {
       map['completed_at'] = Variable<DateTime>(completedAt);
+    }
+    if (!nullToAbsent || emoji != null) {
+      map['emoji'] = Variable<String>(emoji);
+    }
+    if (!nullToAbsent || color != null) {
+      map['color'] = Variable<String>(color);
     }
     map['dirty'] = Variable<bool>(dirty);
     return map;
@@ -730,6 +780,12 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
       completedAt: completedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(completedAt),
+      emoji: emoji == null && nullToAbsent
+          ? const Value.absent()
+          : Value(emoji),
+      color: color == null && nullToAbsent
+          ? const Value.absent()
+          : Value(color),
       dirty: Value(dirty),
     );
   }
@@ -743,6 +799,8 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
       entityId: serializer.fromJson<String>(json['entityId']),
       startedAt: serializer.fromJson<DateTime?>(json['startedAt']),
       completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
+      emoji: serializer.fromJson<String?>(json['emoji']),
+      color: serializer.fromJson<String?>(json['color']),
       dirty: serializer.fromJson<bool>(json['dirty']),
     );
   }
@@ -753,6 +811,8 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
       'entityId': serializer.toJson<String>(entityId),
       'startedAt': serializer.toJson<DateTime?>(startedAt),
       'completedAt': serializer.toJson<DateTime?>(completedAt),
+      'emoji': serializer.toJson<String?>(emoji),
+      'color': serializer.toJson<String?>(color),
       'dirty': serializer.toJson<bool>(dirty),
     };
   }
@@ -761,11 +821,15 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
     String? entityId,
     Value<DateTime?> startedAt = const Value.absent(),
     Value<DateTime?> completedAt = const Value.absent(),
+    Value<String?> emoji = const Value.absent(),
+    Value<String?> color = const Value.absent(),
     bool? dirty,
   }) => ProjectRow(
     entityId: entityId ?? this.entityId,
     startedAt: startedAt.present ? startedAt.value : this.startedAt,
     completedAt: completedAt.present ? completedAt.value : this.completedAt,
+    emoji: emoji.present ? emoji.value : this.emoji,
+    color: color.present ? color.value : this.color,
     dirty: dirty ?? this.dirty,
   );
   ProjectRow copyWithCompanion(ProjectsCompanion data) {
@@ -775,6 +839,8 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
       completedAt: data.completedAt.present
           ? data.completedAt.value
           : this.completedAt,
+      emoji: data.emoji.present ? data.emoji.value : this.emoji,
+      color: data.color.present ? data.color.value : this.color,
       dirty: data.dirty.present ? data.dirty.value : this.dirty,
     );
   }
@@ -785,13 +851,16 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
           ..write('entityId: $entityId, ')
           ..write('startedAt: $startedAt, ')
           ..write('completedAt: $completedAt, ')
+          ..write('emoji: $emoji, ')
+          ..write('color: $color, ')
           ..write('dirty: $dirty')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(entityId, startedAt, completedAt, dirty);
+  int get hashCode =>
+      Object.hash(entityId, startedAt, completedAt, emoji, color, dirty);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -799,6 +868,8 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
           other.entityId == this.entityId &&
           other.startedAt == this.startedAt &&
           other.completedAt == this.completedAt &&
+          other.emoji == this.emoji &&
+          other.color == this.color &&
           other.dirty == this.dirty);
 }
 
@@ -806,12 +877,16 @@ class ProjectsCompanion extends UpdateCompanion<ProjectRow> {
   final Value<String> entityId;
   final Value<DateTime?> startedAt;
   final Value<DateTime?> completedAt;
+  final Value<String?> emoji;
+  final Value<String?> color;
   final Value<bool> dirty;
   final Value<int> rowid;
   const ProjectsCompanion({
     this.entityId = const Value.absent(),
     this.startedAt = const Value.absent(),
     this.completedAt = const Value.absent(),
+    this.emoji = const Value.absent(),
+    this.color = const Value.absent(),
     this.dirty = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -819,6 +894,8 @@ class ProjectsCompanion extends UpdateCompanion<ProjectRow> {
     required String entityId,
     this.startedAt = const Value.absent(),
     this.completedAt = const Value.absent(),
+    this.emoji = const Value.absent(),
+    this.color = const Value.absent(),
     this.dirty = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : entityId = Value(entityId);
@@ -826,6 +903,8 @@ class ProjectsCompanion extends UpdateCompanion<ProjectRow> {
     Expression<String>? entityId,
     Expression<DateTime>? startedAt,
     Expression<DateTime>? completedAt,
+    Expression<String>? emoji,
+    Expression<String>? color,
     Expression<bool>? dirty,
     Expression<int>? rowid,
   }) {
@@ -833,6 +912,8 @@ class ProjectsCompanion extends UpdateCompanion<ProjectRow> {
       if (entityId != null) 'entity_id': entityId,
       if (startedAt != null) 'started_at': startedAt,
       if (completedAt != null) 'completed_at': completedAt,
+      if (emoji != null) 'emoji': emoji,
+      if (color != null) 'color': color,
       if (dirty != null) 'dirty': dirty,
       if (rowid != null) 'rowid': rowid,
     });
@@ -842,6 +923,8 @@ class ProjectsCompanion extends UpdateCompanion<ProjectRow> {
     Value<String>? entityId,
     Value<DateTime?>? startedAt,
     Value<DateTime?>? completedAt,
+    Value<String?>? emoji,
+    Value<String?>? color,
     Value<bool>? dirty,
     Value<int>? rowid,
   }) {
@@ -849,6 +932,8 @@ class ProjectsCompanion extends UpdateCompanion<ProjectRow> {
       entityId: entityId ?? this.entityId,
       startedAt: startedAt ?? this.startedAt,
       completedAt: completedAt ?? this.completedAt,
+      emoji: emoji ?? this.emoji,
+      color: color ?? this.color,
       dirty: dirty ?? this.dirty,
       rowid: rowid ?? this.rowid,
     );
@@ -866,6 +951,12 @@ class ProjectsCompanion extends UpdateCompanion<ProjectRow> {
     if (completedAt.present) {
       map['completed_at'] = Variable<DateTime>(completedAt.value);
     }
+    if (emoji.present) {
+      map['emoji'] = Variable<String>(emoji.value);
+    }
+    if (color.present) {
+      map['color'] = Variable<String>(color.value);
+    }
     if (dirty.present) {
       map['dirty'] = Variable<bool>(dirty.value);
     }
@@ -881,6 +972,8 @@ class ProjectsCompanion extends UpdateCompanion<ProjectRow> {
           ..write('entityId: $entityId, ')
           ..write('startedAt: $startedAt, ')
           ..write('completedAt: $completedAt, ')
+          ..write('emoji: $emoji, ')
+          ..write('color: $color, ')
           ..write('dirty: $dirty, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -6824,6 +6917,8 @@ typedef $$ProjectsTableCreateCompanionBuilder = ProjectsCompanion Function({
   required String entityId,
   Value<DateTime?> startedAt,
   Value<DateTime?> completedAt,
+  Value<String?> emoji,
+  Value<String?> color,
   Value<bool> dirty,
   Value<int> rowid,
 });
@@ -6831,6 +6926,8 @@ typedef $$ProjectsTableUpdateCompanionBuilder = ProjectsCompanion Function({
   Value<String> entityId,
   Value<DateTime?> startedAt,
   Value<DateTime?> completedAt,
+  Value<String?> emoji,
+  Value<String?> color,
   Value<bool> dirty,
   Value<int> rowid,
 });
@@ -6873,6 +6970,16 @@ class $$ProjectsTableFilterComposer
 
   ColumnFilters<DateTime> get completedAt => $composableBuilder(
     column: $table.completedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get emoji => $composableBuilder(
+    column: $table.emoji,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get color => $composableBuilder(
+    column: $table.color,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6924,6 +7031,16 @@ class $$ProjectsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get emoji => $composableBuilder(
+    column: $table.emoji,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get color => $composableBuilder(
+    column: $table.color,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get dirty => $composableBuilder(
     column: $table.dirty,
     builder: (column) => ColumnOrderings(column),
@@ -6969,6 +7086,12 @@ class $$ProjectsTableAnnotationComposer
     column: $table.completedAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get emoji =>
+      $composableBuilder(column: $table.emoji, builder: (column) => column);
+
+  GeneratedColumn<String> get color =>
+      $composableBuilder(column: $table.color, builder: (column) => column);
 
   GeneratedColumn<bool> get dirty =>
       $composableBuilder(column: $table.dirty, builder: (column) => column);
@@ -7028,12 +7151,16 @@ class $$ProjectsTableTableManager
                 Value<String> entityId = const Value.absent(),
                 Value<DateTime?> startedAt = const Value.absent(),
                 Value<DateTime?> completedAt = const Value.absent(),
+                Value<String?> emoji = const Value.absent(),
+                Value<String?> color = const Value.absent(),
                 Value<bool> dirty = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProjectsCompanion(
                 entityId: entityId,
                 startedAt: startedAt,
                 completedAt: completedAt,
+                emoji: emoji,
+                color: color,
                 dirty: dirty,
                 rowid: rowid,
               ),
@@ -7042,12 +7169,16 @@ class $$ProjectsTableTableManager
                 required String entityId,
                 Value<DateTime?> startedAt = const Value.absent(),
                 Value<DateTime?> completedAt = const Value.absent(),
+                Value<String?> emoji = const Value.absent(),
+                Value<String?> color = const Value.absent(),
                 Value<bool> dirty = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProjectsCompanion.insert(
                 entityId: entityId,
                 startedAt: startedAt,
                 completedAt: completedAt,
+                emoji: emoji,
+                color: color,
                 dirty: dirty,
                 rowid: rowid,
               ),

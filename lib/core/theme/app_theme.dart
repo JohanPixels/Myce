@@ -10,6 +10,7 @@ class OctoDashColors extends ThemeExtension<OctoDashColors> {
     required this.recurso,
     required this.wishlist,
     required this.estancado,
+    required this.enCurso,
   });
 
   final Color proyecto;
@@ -18,12 +19,17 @@ class OctoDashColors extends ThemeExtension<OctoDashColors> {
   final Color wishlist;
   final Color estancado;
 
+  /// Lo que pide atención ya: tareas "En curso", proyecto sin próxima
+  /// acción. Naranja eléctrico del logo de Myce.
+  final Color enCurso;
+
   static const light = OctoDashColors(
     proyecto: Color(0xFF2D9CDB),
     area: Color(0xFF27AE60),
     recurso: Color(0xFFF2994A),
     wishlist: Color(0xFF9B51E0),
     estancado: Color(0xFFEB5757),
+    enCurso: Color(0xFFD95E00),
   );
 
   static const dark = OctoDashColors(
@@ -32,6 +38,7 @@ class OctoDashColors extends ThemeExtension<OctoDashColors> {
     recurso: Color(0xFFF2C94C),
     wishlist: Color(0xFFBB6BD9),
     estancado: Color(0xFFFF6B6B),
+    enCurso: Color(0xFFFF7A1A),
   );
 
   @override
@@ -41,6 +48,7 @@ class OctoDashColors extends ThemeExtension<OctoDashColors> {
     Color? recurso,
     Color? wishlist,
     Color? estancado,
+    Color? enCurso,
   }) {
     return OctoDashColors(
       proyecto: proyecto ?? this.proyecto,
@@ -48,6 +56,7 @@ class OctoDashColors extends ThemeExtension<OctoDashColors> {
       recurso: recurso ?? this.recurso,
       wishlist: wishlist ?? this.wishlist,
       estancado: estancado ?? this.estancado,
+      enCurso: enCurso ?? this.enCurso,
     );
   }
 
@@ -60,6 +69,7 @@ class OctoDashColors extends ThemeExtension<OctoDashColors> {
       recurso: Color.lerp(recurso, other.recurso, t)!,
       wishlist: Color.lerp(wishlist, other.wishlist, t)!,
       estancado: Color.lerp(estancado, other.estancado, t)!,
+      enCurso: Color.lerp(enCurso, other.enCurso, t)!,
     );
   }
 }

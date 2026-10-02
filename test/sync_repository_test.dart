@@ -124,6 +124,22 @@ void main() {
     expect(projectUpsert['user_id'], 'u1');
   });
 
+  test('pushea emoji y color de un Project', () async {
+    final entityId = await entities.create(
+      type: EntityType.project,
+      title: 'Proyecto X',
+    );
+    await (db.update(db.projects)..where((p) => p.entityId.equals(entityId)))
+        .write(const ProjectsCompanion(emoji: Value('🍄'), color: Value('cyan')));
+
+    final fake = FakeSyncClient();
+    await pushDirtyData(db, userId: 'u1', client: fake);
+
+    final projectUpsert = fake.upserts.firstWhere((e) => e.key == 'projects').value;
+    expect(projectUpsert['emoji'], '🍄');
+    expect(projectUpsert['color'], 'cyan');
+  });
+
   test('un fallo en una tabla no bloquea el push de las demás, y esa fila sigue dirty para reintento', () async {
     final entityId = await entities.create(
       type: EntityType.project,

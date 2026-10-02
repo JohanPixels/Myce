@@ -30,7 +30,9 @@ create table if not exists public.projects (
   entity_id uuid primary key references public.entities(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   started_at timestamptz,
-  completed_at timestamptz
+  completed_at timestamptz,
+  emoji text,
+  color text
 );
 alter table public.projects enable row level security;
 create policy "projects_own" on public.projects
@@ -200,3 +202,8 @@ create policy "entity_tags_own" on public.entity_tags
 -- correrlo en un proyecto nuevo.
 alter table public.activity_links add column if not exists deleted_at timestamptz;
 alter table public.entity_tags add column if not exists deleted_at timestamptz;
+
+-- Migración incremental (schemaVersion local 4→5): apariencia de Project.
+-- Idempotente — correr en un proyecto de Supabase que ya tenía la tabla.
+alter table public.projects add column if not exists emoji text;
+alter table public.projects add column if not exists color text;

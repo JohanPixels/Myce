@@ -180,6 +180,8 @@ Future<void> _pushDirtyProjects(
       'user_id': userId,
       'started_at': p.startedAt?.toIso8601String(),
       'completed_at': p.completedAt?.toIso8601String(),
+      'emoji': p.emoji,
+      'color': p.color,
     },
     markClean: (p) =>
         (db.update(db.projects)..where((r) => r.entityId.equals(p.entityId)))
@@ -569,6 +571,8 @@ Future<void> _pullProjects(AppDatabase db, SyncClient client) async {
         entityId: Value(row['entity_id'] as String),
         startedAt: Value(_parseNullableDate(row['started_at'])),
         completedAt: Value(_parseNullableDate(row['completed_at'])),
+        emoji: Value(row['emoji'] as String?),
+        color: Value(row['color'] as String?),
         dirty: const Value(false),
       ),
     ),

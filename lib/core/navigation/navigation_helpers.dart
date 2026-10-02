@@ -14,8 +14,15 @@ String _currentBranchPath(BuildContext context) {
   return '/$firstSegment';
 }
 
-void pushEntityDetail(BuildContext context, String entityId) {
-  context.push('${_currentBranchPath(context)}/entity/$entityId');
+/// [generic] abre la pantalla genérica aunque la Entity sea un Project
+/// (ver `EntityDetailDispatcher`).
+void pushEntityDetail(
+  BuildContext context,
+  String entityId, {
+  bool generic = false,
+}) {
+  final query = generic ? '?generic=1' : '';
+  context.push('${_currentBranchPath(context)}/entity/$entityId$query');
 }
 
 void pushTaskDetail(BuildContext context, String taskId) {

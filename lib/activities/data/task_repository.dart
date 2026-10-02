@@ -38,7 +38,7 @@ class TaskRepository {
     String? description,
     TaskPriority priority = TaskPriority.none,
     DateTime? dueAt,
-    String linkType = 'part_of',
+    String linkType = partOfLinkType,
   }) {
     return _db.transaction(() async {
       final taskId = await create(
@@ -71,17 +71,16 @@ class TaskRepository {
   Stream<EntityRow?> watchLinkedEntity(String taskId) {
     final query =
         _db.select(_db.activityLinks).join([
-            innerJoin(
-              _db.entities,
-              _db.entities.id.equalsExp(_db.activityLinks.entityId),
-            ),
-          ])
-          ..where(
-            _db.activityLinks.activityType.equals('task') &
-                _db.activityLinks.activityId.equals(taskId) &
-                _db.activityLinks.deletedAt.isNull() &
-                _db.entities.deletedAt.isNull(),
-          );
+          innerJoin(
+            _db.entities,
+            _db.entities.id.equalsExp(_db.activityLinks.entityId),
+          ),
+        ])..where(
+          _db.activityLinks.activityType.equals('task') &
+              _db.activityLinks.activityId.equals(taskId) &
+              _db.activityLinks.deletedAt.isNull() &
+              _db.entities.deletedAt.isNull(),
+        );
     return query.watch().map(
       (rows) => rows.isEmpty ? null : rows.first.readTable(_db.entities),
     );
@@ -102,13 +101,26 @@ class TaskRepository {
         );
   }
 
-  Stream<TaskRow?> watchById(String id) =>
-      (_db.select(_db.tasks)
-            ..where((t) => t.id.equals(id) & t.deletedAt.isNull()))
-          .watchSingleOrNull();
+  Stream<TaskRow?> watchById(String id) => (_db.select(
+    _db.tasks,
+  )..where((t) => t.id.equals(id) & t.deletedAt.isNull())).watchSingleOrNull();
 
-  Stream<List<TaskRow>> watchAll() =>
-      (_db.select(_db.tasks)..where((t) => t.deletedAt.isNull())).watch();
+  /// Ids de las Tasks que son Requisitos de un Project — se excluyen de las
+  /// listas generales de tareas porque no son acciones (ver
+  /// `requirementLinkType`); viven solo en la pestaña Requisitos del proyecto.
+  Expression<bool> _noEsRequisito($TasksTable t) => t.id.isNotInQuery(
+    _db.selectOnly(_db.activityLinks)
+      ..addColumns([_db.activityLinks.activityId])
+      ..where(
+        _db.activityLinks.activityType.equals('task') &
+            _db.activityLinks.linkType.equals(requirementLinkType) &
+            _db.activityLinks.deletedAt.isNull(),
+      ),
+  );
+
+  Stream<List<TaskRow>> watchAll() => (_db.select(
+    _db.tasks,
+  )..where((t) => t.deletedAt.isNull() & _noEsRequisito(t))).watch();
 
   /// dueAt <= fin del día de hoy, status activo (no completed/cancelled), no borrada.
   Stream<List<TaskRow>> watchDueTodayOrOverdue() {
@@ -118,6 +130,7 @@ class TaskRepository {
           ..where(
             (t) =>
                 t.deletedAt.isNull() &
+                _noEsRequisito(t) &
                 t.dueAt.isNotNull() &
                 t.dueAt.isSmallerOrEqualValue(endOfToday) &
                 t.status.isNotIn(['completed', 'cancelled']),
@@ -156,7 +169,24 @@ class TaskRepository {
     );
   }
 
-  Stream<List<TaskRow>> watchLinkedToEntity(String entityId) {
+  /// [onlyLinkType]/[excludeLinkType] separan, dentro de un Project, sus
+  /// tareas de sus requisitos (`requirementLinkType`).
+  Stream<List<TaskRow>> watchLinkedToEntity(
+    String entityId, {
+    String? onlyLinkType,
+    String? excludeLinkType,
+  }) {
+    var filtro =
+        _db.activityLinks.entityId.equals(entityId) &
+        _db.activityLinks.deletedAt.isNull() &
+        _db.tasks.deletedAt.isNull();
+    if (onlyLinkType != null) {
+      filtro = filtro & _db.activityLinks.linkType.equals(onlyLinkType);
+    }
+    if (excludeLinkType != null) {
+      filtro =
+          filtro & _db.activityLinks.linkType.equals(excludeLinkType).not();
+    }
     final query =
         _db.select(_db.tasks).join([
             innerJoin(
@@ -165,11 +195,8 @@ class TaskRepository {
                   _db.activityLinks.activityType.equals('task'),
             ),
           ])
-          ..where(
-            _db.activityLinks.entityId.equals(entityId) &
-                _db.activityLinks.deletedAt.isNull() &
-                _db.tasks.deletedAt.isNull(),
-          );
+          ..where(filtro)
+          ..orderBy([OrderingTerm(expression: _db.tasks.createdAt)]);
     return query.watch().map(
       (rows) => rows.map((r) => r.readTable(_db.tasks)).toList(),
     );

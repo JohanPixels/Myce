@@ -8,9 +8,11 @@ import '../../activities/presentation/task_detail_screen.dart';
 import '../../activities/presentation/task_list_screen.dart';
 import '../../entities/domain/entity_type.dart';
 import '../../entities/presentation/category_screen.dart';
+import '../../entities/presentation/entity_detail_dispatcher.dart';
 import '../../entities/presentation/entity_detail_screen.dart';
 import '../../features/auth/login_screen.dart';
 import '../../inbox/inbox_screen.dart';
+import '../../projects/presentation/project_list_screen.dart';
 import '../../review/review_screen.dart';
 import 'app_sections.dart';
 import 'home_shell.dart';
@@ -44,8 +46,14 @@ class _AuthChangeNotifier extends ChangeNotifier {
 List<RouteBase> _detailRoutes() => [
   GoRoute(
     path: 'entity/:id',
-    builder: (context, state) =>
-        EntityDetailScreen(entityId: state.pathParameters['id']!),
+    // `?generic=1` fuerza la pantalla genérica (tags, fechas, relaciones)
+    // aunque sea un Project — se abre desde el menú de su pantalla propia.
+    builder: (context, state) {
+      final id = state.pathParameters['id']!;
+      return state.uri.queryParameters['generic'] == '1'
+          ? EntityDetailScreen(entityId: id)
+          : EntityDetailDispatcher(entityId: id);
+    },
   ),
   GoRoute(
     path: 'task/:id',
@@ -61,8 +69,7 @@ List<RouteBase> _detailRoutes() => [
 final _brancheWidgets = <String, WidgetBuilder>{
   'inbox': (context) => const InboxScreen(),
   'tasks': (context) => const TaskListScreen(),
-  'projects': (context) =>
-      const CategoryScreen(type: EntityType.project, titulo: 'Proyectos'),
+  'projects': (context) => const ProjectListScreen(),
   'areas': (context) =>
       const CategoryScreen(type: EntityType.area, titulo: 'Áreas'),
   'resources': (context) => const CategoryScreen(

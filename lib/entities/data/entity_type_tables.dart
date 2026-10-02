@@ -8,6 +8,11 @@ class Projects extends Table {
       text().references(Entities, #id, onDelete: KeyAction.cascade)();
   DateTimeColumn get startedAt => dateTime().nullable()();
   DateTimeColumn get completedAt => dateTime().nullable()();
+  // Apariencia en la lista/detalle de proyectos: un emoji y una clave de
+  // color de `projectPalette` (core/theme/project_palette.dart), no un hex —
+  // así el color se adapta al tema claro/oscuro. Ambos opcionales.
+  TextColumn get emoji => text().nullable()();
+  TextColumn get color => text().nullable()();
   BoolColumn get dirty => boolean().withDefault(const Constant(true))();
 
   @override

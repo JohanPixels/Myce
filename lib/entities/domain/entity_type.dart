@@ -21,3 +21,12 @@ extension EntityTypeLabel on EntityType {
     EntityType.goal => 'Meta',
   };
 }
+
+extension EntityStatusLabel on EntityStatus {
+  String get label => switch (this) {
+    EntityStatus.active => 'Activo',
+    EntityStatus.paused => 'Pausado',
+    EntityStatus.someday => 'Algún día',
+    EntityStatus.archived => 'Archivado',
+  };
+}
