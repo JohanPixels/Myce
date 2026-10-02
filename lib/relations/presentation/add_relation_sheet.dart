@@ -5,6 +5,7 @@ import '../../core/database/app_database.dart';
 import '../../entities/data/entity_repository_provider.dart';
 import '../../entities/domain/entity_type.dart';
 import '../data/relation_repository_provider.dart';
+import '../domain/relation_labels.dart';
 
 Future<void> mostrarAgregarRelacionSheet(
   BuildContext context,
@@ -72,8 +73,7 @@ Future<void> mostrarAgregarRelacionSheet(
                                 title: Text(e.title),
                                 subtitle: Text(e.type.toEntityType().label),
                                 selected: seleccionada?.id == e.id,
-                                onTap: () =>
-                                    setState(() => seleccionada = e),
+                                onTap: () => setState(() => seleccionada = e),
                               );
                             }).toList(),
                           ),
@@ -103,7 +103,7 @@ Future<void> mostrarAgregarRelacionSheet(
                           runSpacing: 8,
                           children: tipos.map((t) {
                             return ChoiceChip(
-                              label: Text(t.label),
+                              label: Text(t.labelEs),
                               selected: tipoSeleccionado?.id == t.id,
                               onSelected: (_) =>
                                   setState(() => tipoSeleccionado = t),

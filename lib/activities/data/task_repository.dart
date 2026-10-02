@@ -105,6 +105,20 @@ class TaskRepository {
         );
   }
 
+  /// Busca en título y descripción. Incluye requisitos (también son Tasks).
+  Future<List<TaskRow>> search(String query) {
+    final patron = '%$query%';
+    return (_db.select(_db.tasks)
+          ..where(
+            (t) =>
+                t.deletedAt.isNull() &
+                (t.title.like(patron) | t.description.like(patron)),
+          )
+          ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)])
+          ..limit(30))
+        .get();
+  }
+
   Stream<TaskRow?> watchById(String id) => (_db.select(
     _db.tasks,
   )..where((t) => t.id.equals(id) & t.deletedAt.isNull())).watchSingleOrNull();

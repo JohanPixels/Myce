@@ -11,6 +11,8 @@ import '../../entities/presentation/category_screen.dart';
 import '../../entities/presentation/entity_detail_dispatcher.dart';
 import '../../entities/presentation/entity_detail_screen.dart';
 import '../../features/auth/login_screen.dart';
+import '../../focus/presentation/focus_screen.dart';
+import '../../goals/presentation/goal_list_screen.dart';
 import '../../inbox/inbox_screen.dart';
 import '../../projects/presentation/project_list_screen.dart';
 import '../../review/review_screen.dart';
@@ -40,7 +42,7 @@ class _AuthChangeNotifier extends ChangeNotifier {
 
 /// Cada rama del carrusel puede terminar mostrando un detalle de Entity o
 /// de Task (relations, tasks vinculadas, el "Ver" tras clasificar en el
-/// Inbox) — por eso las mismas dos rutas hijas se repiten en las 10 ramas en
+/// Inbox) — por eso las mismas dos rutas hijas se repiten en las 11 ramas en
 /// vez de intentar anidarlas bajo una sola. `pushEntityDetail`/
 /// `pushTaskDetail` en `navigation_helpers.dart` arman el path relativo a
 /// la rama donde estás parado.
@@ -68,6 +70,7 @@ List<RouteBase> _detailRoutes() => [
 /// cada una sigue siendo explícito acá porque no todas se construyen igual
 /// (Inbox/Tareas/Revisión no son `CategoryScreen`).
 final _brancheWidgets = <String, WidgetBuilder>{
+  'ahora': (context) => const FocusScreen(),
   'inbox': (context) => const InboxScreen(),
   'tasks': (context) => const TaskListScreen(),
   'projects': (context) => const ProjectListScreen(),
@@ -85,18 +88,17 @@ final _brancheWidgets = <String, WidgetBuilder>{
       const CategoryScreen(type: EntityType.person, titulo: 'Personas'),
   'hobbies': (context) =>
       const CategoryScreen(type: EntityType.hobby, titulo: 'Hobbies'),
-  'goals': (context) =>
-      const CategoryScreen(type: EntityType.goal, titulo: 'Metas'),
+  'goals': (context) => const GoalListScreen(),
 };
 
 final appRouter = GoRouter(
-  initialLocation: '/inbox',
+  initialLocation: '/ahora', // Myce abre en "qué hago ahora"
   refreshListenable: _AuthChangeNotifier(),
   redirect: (context, state) {
     final loggedIn = Supabase.instance.client.auth.currentSession != null;
     final vaAlLogin = state.matchedLocation == '/login';
     if (!loggedIn) return vaAlLogin ? null : '/login';
-    if (loggedIn && vaAlLogin) return '/inbox';
+    if (loggedIn && vaAlLogin) return '/ahora';
     return null;
   },
   routes: [

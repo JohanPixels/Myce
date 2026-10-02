@@ -1,16 +1,20 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../activities/data/task_repository_provider.dart';
 import '../../capture/capture_sheet.dart';
 import '../../entities/data/entity_repository_provider.dart';
 import '../../entities/presentation/entity_search_delegate.dart';
 import '../../features/sync/sync_button.dart';
 import '../../features/sync/sync_repository.dart';
+import '../../settings/capture_button_preference.dart';
 import '../database/database_provider.dart';
 import 'app_sections.dart';
+import 'carousel_nav_bar.dart';
 
 /// Sincroniza sola, sin depender de que el usuario toque el botón manual:
 /// una vez al entrar (hidrata un dispositivo nuevo con lo que ya existe en
@@ -42,6 +46,10 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
   Timer? _periodicSync;
+
+  /// El "+" se esconde al bajar en una lista y vuelve al subir.
+  bool _fabVisiblePorScroll = true;
+  int? _ultimaSeccion;
   DateTime? _lastSyncAttempt;
 
   @override
@@ -80,13 +88,16 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   Future<void> _buscar(BuildContext context) async {
-    final id = await showSearch<String?>(
+    final hit = await showSearch<SearchHit?>(
       context: context,
-      delegate: EntitySearchDelegate(ref.read(entityRepositoryProvider)),
+      delegate: EntitySearchDelegate(
+        ref.read(entityRepositoryProvider),
+        ref.read(taskRepositoryProvider),
+      ),
     );
-    if (id != null && context.mounted) {
+    if (hit != null && context.mounted) {
       final rama = appSections[widget.navigationShell.currentIndex].path;
-      context.push('/$rama/entity/$id');
+      context.push('/$rama/${hit.isTask ? 'task' : 'entity'}/${hit.id}');
     }
   }
 
@@ -94,6 +105,27 @@ class _AppShellState extends ConsumerState<AppShell>
   Widget build(BuildContext context) {
     final index = widget.navigationShell.currentIndex;
     final colors = Theme.of(context).colorScheme;
+    final posicionFab = ref.watch(captureButtonProvider);
+    // Dentro de un detalle (tarea, nota, proyecto) el "+" estorba y esas
+    // pantallas ya tienen sus propias formas de agregar: solo se muestra en
+    // la pantalla principal de cada sección.
+    final enDetalle =
+        widget
+            .navigationShell
+            .shellRouteContext
+            .routerState
+            .uri
+            .pathSegments
+            .length >
+        1;
+    if (index != _ultimaSeccion) {
+      _ultimaSeccion = index;
+      _fabVisiblePorScroll = true; // sección nueva: el botón vuelve a verse
+    }
+    final mostrarFab =
+        posicionFab != CaptureButtonPosition.oculto &&
+        !enDetalle &&
+        _fabVisiblePorScroll;
     return DefaultTabController(
       length: appSections.length,
       initialIndex: index,
@@ -103,6 +135,12 @@ class _AppShellState extends ConsumerState<AppShell>
           appBar: AppBar(
             title: Text(appSections[index].titulo),
             actions: [
+              if (posicionFab == CaptureButtonPosition.oculto)
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline),
+                  tooltip: 'Capturar',
+                  onPressed: () => mostrarCapturaSheet(context, ref),
+                ),
               IconButton(
                 icon: const Icon(Icons.search),
                 tooltip: 'Buscar',
@@ -116,36 +154,54 @@ class _AppShellState extends ConsumerState<AppShell>
               ),
             ],
           ),
-          body: widget.navigationShell,
-          floatingActionButton: FloatingActionButton(
-            onPressed: () => mostrarCapturaSheet(context, ref),
-            child: const Icon(Icons.add),
+          // Bajar en una lista esconde el "+", subir lo devuelve (solo
+          // scroll vertical: deslizar entre secciones no cuenta).
+          body: NotificationListener<UserScrollNotification>(
+            onNotification: (n) {
+              if (n.metrics.axis != Axis.vertical) return false;
+              final ocultar = n.direction == ScrollDirection.reverse;
+              final mostrar = n.direction == ScrollDirection.forward;
+              if ((ocultar && _fabVisiblePorScroll) ||
+                  (mostrar && !_fabVisiblePorScroll)) {
+                setState(() => _fabVisiblePorScroll = mostrar);
+              }
+              return false;
+            },
+            child: widget.navigationShell,
+          ),
+          floatingActionButtonLocation: posicionFab.location,
+          floatingActionButton: IgnorePointer(
+            ignoring: !mostrarFab,
+            child: AnimatedSlide(
+              offset: mostrarFab ? Offset.zero : const Offset(0, 2),
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              child: AnimatedOpacity(
+                opacity: mostrarFab ? 1 : 0,
+                duration: const Duration(milliseconds: 200),
+                child: FloatingActionButton(
+                  tooltip: 'Capturar',
+                  onPressed: () => mostrarCapturaSheet(context, ref),
+                  child: const Icon(Icons.add),
+                ),
+              ),
+            ),
           ),
           bottomNavigationBar: Material(
             color: colors.surface,
             elevation: 3,
             child: SafeArea(
               top: false,
-              child: TabBar(
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                labelColor: colors.primary,
-                unselectedLabelColor: colors.onSurfaceVariant,
-                indicatorColor: colors.primary,
+              child: CarouselNavBar(
                 // Tocar la sección en la que ya estás la "recarga": vuelve a
                 // su pantalla principal (sale de cualquier detalle abierto
-                // adentro) y dispara un sync. El cambio a OTRA sección lo
-                // maneja `_TabBranchSync`.
-                onTap: (i) {
-                  if (i == widget.navigationShell.currentIndex) {
-                    widget.navigationShell.goBranch(i, initialLocation: true);
-                    _triggerSync();
-                  }
+                // adentro) y dispara un sync. El cambio a OTRA sección pasa
+                // por el TabController y lo traduce `_TabBranchSync`.
+                onTapActual: () {
+                  final i = widget.navigationShell.currentIndex;
+                  widget.navigationShell.goBranch(i, initialLocation: true);
+                  _triggerSync();
                 },
-                tabs: [
-                  for (final seccion in appSections)
-                    Tab(icon: Icon(seccion.icon), text: seccion.titulo),
-                ],
               ),
             ),
           ),

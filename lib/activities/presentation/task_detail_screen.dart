@@ -11,6 +11,7 @@ import 'link_entity_sheet.dart';
 import '../../core/widgets/copiar.dart';
 import '../../core/widgets/renombrar_dialog.dart';
 import '../../core/widgets/markdown_field.dart';
+import '../../links/presentation/wiki_links.dart';
 
 class TaskDetailScreen extends ConsumerStatefulWidget {
   const TaskDetailScreen({super.key, required this.taskId});
@@ -227,6 +228,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                 tituloLectura: task.title,
                 hint: 'Detalles opcionales… (soporta Markdown)',
                 onSave: (v) => taskRepo.updateDescription(task.id, v),
+                enlaces: enlacesWiki(context, ref),
               ),
 
               const SizedBox(height: 20),

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/theme/app_theme.dart';
 import '../core/theme/theme_provider.dart';
+import 'capture_button_preference.dart';
 
 /// Preferencias del dispositivo y de la cuenta. Pantalla completa (fuera
 /// del carrusel de secciones), se abre desde el ícono de engranaje.
@@ -101,6 +102,47 @@ class SettingsScreen extends ConsumerWidget {
                       onSelectionChanged: (s) =>
                           ref.read(themeModeProvider.notifier).set(s.first),
                     ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          SizedBox(height: spacing.sm),
+          Card(
+            child: Padding(
+              padding: EdgeInsets.all(spacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Botón de captura (+)',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  SizedBox(height: spacing.xs),
+                  Text(
+                    'Se esconde al bajar en una lista y dentro de los '
+                    'detalles. "Arriba" lo quita y deja la captura como un '
+                    'ícono en la barra superior.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  SizedBox(height: spacing.md - 4),
+                  // Chips y no SegmentedButton: 4 opciones no caben en una
+                  // fila en un celular angosto.
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final p in CaptureButtonPosition.values)
+                        ChoiceChip(
+                          label: Text(p.label),
+                          selected: ref.watch(captureButtonProvider) == p,
+                          onSelected: (_) =>
+                              ref.read(captureButtonProvider.notifier).set(p),
+                        ),
+                    ],
                   ),
                 ],
               ),

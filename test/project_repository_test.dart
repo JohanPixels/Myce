@@ -123,7 +123,7 @@ void main() {
       idea: true,
     );
 
-    var obs = await projects.watchObservations(projectId).first;
+    var obs = await projects.watchNotes(projectId).first;
     expect(obs, hasLength(2));
     expect(obs.firstWhere((o) => o.note.id == ideaId).isIdea, isTrue);
     expect(obs.where((o) => o.isIdea), hasLength(1));
@@ -131,7 +131,7 @@ void main() {
     final lenta = obs.firstWhere((o) => !o.isIdea).note;
     await projects.convertToTask(projectId, lenta);
 
-    obs = await projects.watchObservations(projectId).first;
+    obs = await projects.watchNotes(projectId).first;
     expect(obs.map((o) => o.note.id), [ideaId]);
     final tareas = await projects.watchTasks(projectId).first;
     expect(tareas.map((t) => t.title), ['El sync se siente lento']);
@@ -196,7 +196,7 @@ void main() {
     expect(await projects.watchUnclassified(projectId).first, isEmpty);
     expect((await projects.watchTasks(projectId).first).map((t) => t.title), ['t']);
     expect((await projects.watchRequirements(projectId).first).map((t) => t.title), ['r']);
-    final obs = await projects.watchObservations(projectId).first;
+    final obs = await projects.watchNotes(projectId).first;
     expect(obs.map((o) => (o.note.title, o.isIdea)).toSet(), {('o', false), ('i', true)});
     // procesadas = soft-delete + dirty, para que el sync propague
     final filas = await db.select(db.inboxItems).get();
@@ -237,5 +237,65 @@ void main() {
     final item = await inbox.getById(captura.id);
     expect((tarea.title, tarea.dirty), ('Nuevo', true));
     expect((item.content, item.dirty), ('captura nueva', true));
+  });
+
+  test('un documento es una Note del proyecto con tag documento, separada de las observaciones', () async {
+    await projects.addObservation(projectId, 'Una observación');
+    final docId = await projects.addDocument(projectId, 'Especificación');
+    await entities.updateNoteContent(docId, '# Uno\ntexto');
+
+    final notas = await projects.watchNotes(projectId).first;
+    final doc = notas.firstWhere((n) => n.note.id == docId);
+    expect(doc.isDocument, isTrue);
+    expect(doc.isIdea, isFalse);
+    expect(doc.content, '# Uno\ntexto');
+    expect(notas.where((n) => !n.isDocument).map((n) => n.note.title), [
+      'Una observación',
+    ]);
+  });
+
+  test('el contexto agrupa conexiones por tipo y excluye las notas del proyecto', () async {
+    final relations = RelationRepository(db);
+    final meta = await entities.create(type: EntityType.goal, title: 'Meta');
+    final recurso = await entities.create(
+      type: EntityType.resource,
+      title: 'Curso',
+    );
+    final persona = await entities.create(
+      type: EntityType.person,
+      title: 'Ana',
+    );
+    await relations.create(
+      sourceEntityId: projectId,
+      targetEntityId: meta,
+      relationTypeKey: 'supports',
+    );
+    await relations.create(
+      sourceEntityId: projectId,
+      targetEntityId: recurso,
+      relationTypeKey: 'uses',
+    );
+    await relations.create(
+      sourceEntityId: persona,
+      targetEntityId: projectId,
+      relationTypeKey: 'contributes_to',
+    );
+    await projects.addObservation(projectId, 'no debe aparecer');
+
+    var ctx = await projects.watchContext(projectId).first;
+    expect(
+      {for (final c in ctx) c.entity.title: c.group},
+      {
+        'Meta': ProjectContextGroup.belongsTo,
+        'Curso': ProjectContextGroup.resources,
+        'Ana': ProjectContextGroup.people,
+      },
+    );
+
+    await projects.disconnect(
+      ctx.firstWhere((c) => c.entity.title == 'Curso').relationId,
+    );
+    ctx = await projects.watchContext(projectId).first;
+    expect(ctx.map((c) => c.entity.title), isNot(contains('Curso')));
   });
 }

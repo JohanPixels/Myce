@@ -14,6 +14,12 @@ import '../../tags/data/tag_repository.dart';
 /// Wishlist (CLAUDE.md, regla 5).
 const ideaTagName = 'idea';
 
+/// Tag que marca una Note del proyecto como Documento (referencia de largo
+/// plazo: especificación, guía, decisiones) en vez de Observación. Las
+/// Observaciones son las Notes `belongs_to` sin este tag ni `idea` — así
+/// las ya existentes no necesitan migración.
+const documentTagName = 'documento';
+
 /// Largo máximo del título de una Note creada desde la captura rápida de un
 /// proyecto — si el texto es más largo, el título se recorta y el texto
 /// completo va a `notes.content`.
@@ -51,10 +57,34 @@ class ProjectSummary {
 }
 
 class ProjectNoteItem {
-  ProjectNoteItem({required this.note, required this.isIdea});
+  ProjectNoteItem({
+    required this.note,
+    required this.isIdea,
+    this.isDocument = false,
+    this.content,
+  });
 
   final EntityRow note;
   final bool isIdea;
+  final bool isDocument;
+
+  /// `notes.content` (Markdown), para la vista previa de los Documentos.
+  final String? content;
+}
+
+/// Cómo se agrupa una conexión en la pestaña Contexto del proyecto.
+enum ProjectContextGroup { belongsTo, resources, people, other }
+
+class ProjectContextItem {
+  ProjectContextItem({
+    required this.relationId,
+    required this.entity,
+    required this.group,
+  });
+
+  final String relationId;
+  final EntityRow entity;
+  final ProjectContextGroup group;
 }
 
 /// Vista de "proyecto" armada sobre el modelo existente, sin tablas nuevas:
@@ -101,6 +131,9 @@ class ProjectRepository {
 
   Stream<ProjectSummary?> watchSummary(String projectId) => watchSummaries()
       .map((all) => all.where((s) => s.entity.id == projectId).firstOrNull);
+
+  /// Público para vistas que combinan proyectos con otra cosa (ej. Metas).
+  Future<List<ProjectSummary>> loadSummaries() => _loadSummaries();
 
   Future<List<ProjectSummary>> _loadSummaries() async {
     final rows =
@@ -186,18 +219,23 @@ class ProjectRepository {
   Stream<List<TaskRow>> watchRequirements(String projectId) =>
       _tasks.watchLinkedToEntity(projectId, onlyLinkType: requirementLinkType);
 
-  Stream<List<ProjectNoteItem>> watchObservations(String projectId) =>
+  /// Todas las Notes `belongs_to` del proyecto (no archivadas): Documentos,
+  /// Observaciones e Ideas — la UI las separa con `isDocument`/`isIdea`.
+  Stream<List<ProjectNoteItem>> watchNotes(String projectId) =>
       _watchRecalculando({
         _db.entities,
+        _db.notes,
         _db.relations,
         _db.entityTags,
         _db.tags,
-      }, () => _loadObservations(projectId));
+      }, () => _loadNotes(projectId));
 
-  Future<List<ProjectNoteItem>> _loadObservations(String projectId) async {
-    final belongsTo = await (_db.select(
-      _db.relationTypes,
-    )..where((t) => t.key.equals('belongs_to'))).getSingle();
+  Future<RelationTypeRow> _belongsTo() => (_db.select(
+    _db.relationTypes,
+  )..where((t) => t.key.equals('belongs_to'))).getSingle();
+
+  Future<List<ProjectNoteItem>> _loadNotes(String projectId) async {
+    final belongsTo = await _belongsTo();
     final rels =
         await (_db.select(_db.relations)..where(
               (r) =>
@@ -210,35 +248,113 @@ class ProjectRepository {
     if (noteIds.isEmpty) return [];
 
     final notes =
-        await (_db.select(_db.entities)
+        await (_db.select(_db.entities).join([
+                leftOuterJoin(
+                  _db.notes,
+                  _db.notes.entityId.equalsExp(_db.entities.id),
+                ),
+              ])
               ..where(
-                (e) =>
-                    e.id.isIn(noteIds) &
-                    e.type.equals(EntityType.note.name) &
-                    e.status.equals(EntityStatus.archived.name).not() &
-                    e.deletedAt.isNull(),
+                _db.entities.id.isIn(noteIds) &
+                    _db.entities.type.equals(EntityType.note.name) &
+                    _db.entities.status
+                        .equals(EntityStatus.archived.name)
+                        .not() &
+                    _db.entities.deletedAt.isNull(),
               )
-              ..orderBy([(e) => OrderingTerm.desc(e.createdAt)]))
+              ..orderBy([OrderingTerm.desc(_db.entities.createdAt)]))
             .get();
 
-    final ideaRows =
+    final tagRows =
         await (_db.select(_db.entityTags).join([
               innerJoin(_db.tags, _db.tags.id.equalsExp(_db.entityTags.tagId)),
             ])..where(
-              _db.tags.name.equals(ideaTagName) &
+              _db.tags.name.isIn([ideaTagName, documentTagName]) &
                   _db.entityTags.entityId.isIn(noteIds) &
                   _db.entityTags.deletedAt.isNull(),
             ))
             .get();
-    final ideas = ideaRows
+    Set<String> conTag(String nombre) => tagRows
+        .where((r) => r.readTable(_db.tags).name == nombre)
         .map((r) => r.readTable(_db.entityTags).entityId)
         .toSet();
+    final ideas = conTag(ideaTagName);
+    final documentos = conTag(documentTagName);
 
     return [
-      for (final n in notes)
-        ProjectNoteItem(note: n, isIdea: ideas.contains(n.id)),
+      for (final r in notes)
+        ProjectNoteItem(
+          note: r.readTable(_db.entities),
+          isIdea: ideas.contains(r.readTable(_db.entities).id),
+          isDocument: documentos.contains(r.readTable(_db.entities).id),
+          content: r.readTableOrNull(_db.notes)?.content,
+        ),
     ];
   }
+
+  /// Lo conectado al proyecto por `relations` — Meta/Área a la que
+  /// pertenece, Recursos, Personas y el resto. Excluye las Notes que le
+  /// pertenecen (`belongs_to` → proyecto): esas viven en la pestaña Notas.
+  Stream<List<ProjectContextItem>> watchContext(String projectId) =>
+      _watchRecalculando({
+        _db.entities,
+        _db.relations,
+      }, () => _loadContext(projectId));
+
+  Future<List<ProjectContextItem>> _loadContext(String projectId) async {
+    final belongsTo = await _belongsTo();
+    final rels =
+        await (_db.select(_db.relations)..where(
+              (r) =>
+                  (r.sourceEntityId.equals(projectId) |
+                      r.targetEntityId.equals(projectId)) &
+                  r.deletedAt.isNull(),
+            ))
+            .get();
+    if (rels.isEmpty) return [];
+    final otroDe = {
+      for (final r in rels)
+        r.id: r.sourceEntityId == projectId
+            ? r.targetEntityId
+            : r.sourceEntityId,
+    };
+    final entidades = {
+      for (final e
+          in await (_db.select(_db.entities)..where(
+                (e) => e.id.isIn(otroDe.values.toSet()) & e.deletedAt.isNull(),
+              ))
+              .get())
+        e.id: e,
+    };
+
+    final items = <ProjectContextItem>[];
+    for (final r in rels) {
+      final otro = entidades[otroDe[r.id]];
+      if (otro == null) continue;
+      final type = otro.type.toEntityType();
+      final esNotaDelProyecto =
+          type == EntityType.note &&
+          r.relationTypeId == belongsTo.id &&
+          r.targetEntityId == projectId;
+      if (esNotaDelProyecto) continue;
+      items.add(
+        ProjectContextItem(
+          relationId: r.id,
+          entity: otro,
+          group: switch (type) {
+            EntityType.goal || EntityType.area => ProjectContextGroup.belongsTo,
+            EntityType.resource => ProjectContextGroup.resources,
+            EntityType.person => ProjectContextGroup.people,
+            _ => ProjectContextGroup.other,
+          },
+        ),
+      );
+    }
+    items.sort((a, b) => a.entity.title.compareTo(b.entity.title));
+    return items;
+  }
+
+  Future<void> disconnect(String relationId) => _relations.delete(relationId);
 
   Future<String> addTask(
     String projectId,
@@ -325,6 +441,16 @@ class ProjectRepository {
         relationTypeKey: 'belongs_to',
       );
       if (idea) await _tags.tagEntity(noteId, ideaTagName);
+      return noteId;
+    });
+  }
+
+  /// Crea un Documento vacío (Note `belongs_to` + tag `documento`) y
+  /// devuelve su id, para abrirlo y escribir.
+  Future<String> addDocument(String projectId, String title) {
+    return _db.transaction(() async {
+      final noteId = await addObservation(projectId, title);
+      await _tags.tagEntity(noteId, documentTagName);
       return noteId;
     });
   }

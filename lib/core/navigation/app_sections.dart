@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Las 10 secciones del carrusel, en el mismo orden en que se declaran las
+/// Las 11 secciones del carrusel, en el mismo orden en que se declaran las
 /// `StatefulShellBranch` en app_router.dart — `navigationShell.currentIndex`
 /// es un índice plano sobre esa lista, así que el orden acá DEBE coincidir
 /// con el orden de las branches o el título/ícono de la pestaña activa
@@ -20,6 +20,7 @@ class AppSection {
 }
 
 const appSections = [
+  AppSection(path: 'ahora', titulo: 'Ahora', icon: Icons.bolt),
   AppSection(path: 'inbox', titulo: 'Inbox', icon: Icons.inbox),
   AppSection(path: 'tasks', titulo: 'Tareas', icon: Icons.check_circle_outline),
   AppSection(path: 'projects', titulo: 'Proyectos', icon: Icons.rocket_launch),

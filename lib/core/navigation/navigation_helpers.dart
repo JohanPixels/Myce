@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// Push relativo a la rama del carrusel donde estás parado. Las 10 ramas
+/// Push relativo a la rama del carrusel donde estás parado. Las 11 ramas
 /// registran las mismas rutas hijas `entity/:id` y `task/:id` (ver
 /// app_router.dart) — así un detalle puede empujar otro (relations, tasks
 /// vinculadas, el "Ver" tras clasificar) sin perder el nav ni el FAB, que

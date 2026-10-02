@@ -18,7 +18,9 @@ void main() async {
 
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,
-    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+    // La anon key "legacy" sirve igual como publishable key; el parámetro
+    // anonKey quedó deprecado en supabase_flutter.
+    publishableKey: dotenv.env['SUPABASE_ANON_KEY']!,
   );
   final prefs = await SharedPreferences.getInstance();
   runApp(

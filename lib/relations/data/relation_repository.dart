@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/database/app_database.dart';
+import '../domain/relation_labels.dart';
 
 class RelationDisplayItem {
   RelationDisplayItem({
@@ -69,13 +70,14 @@ class RelationRepository {
   Future<List<RelationDisplayItem>> listForEntityDisplay(
     String entityId,
   ) async {
-    final rows = await (_db.select(_db.relations)..where(
-          (r) =>
-              (r.sourceEntityId.equals(entityId) |
-                  r.targetEntityId.equals(entityId)) &
-              r.deletedAt.isNull(),
-        ))
-        .get();
+    final rows =
+        await (_db.select(_db.relations)..where(
+              (r) =>
+                  (r.sourceEntityId.equals(entityId) |
+                      r.targetEntityId.equals(entityId)) &
+                  r.deletedAt.isNull(),
+            ))
+            .get();
 
     final result = <RelationDisplayItem>[];
     for (final r in rows) {
@@ -92,7 +94,7 @@ class RelationRepository {
           relationId: r.id,
           otherEntityId: other.id,
           otherEntityTitle: other.title,
-          label: isSource ? type.label : type.inverseLabel,
+          label: isSource ? type.labelEs : type.inverseLabelEs,
           note: r.note,
         ),
       );

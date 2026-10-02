@@ -1,6 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
+import 'copiar.dart';
+
+/// Cómo se resuelven los enlaces `[[Otra nota]]` dentro de un
+/// [MarkdownField] — lo provee quien conoce la base (ver
+/// `links/presentation/wiki_links.dart`); sin esto, `[[...]]` se ve como
+/// texto plano y el editor no sugiere nada.
+class MarkdownEnlaces {
+  const MarkdownEnlaces({required this.sugerir, required this.abrir});
+
+  /// Títulos que coinciden con lo escrito después de `[[`.
+  final Future<List<String>> Function(String query) sugerir;
+
+  /// Tocar un `[[Título]]` en la vista previa.
+  final void Function(String titulo) abrir;
+}
+
+final _reEnlaceWiki = RegExp(r'\[\[([^\[\]\n]+)\]\]');
+const _esquemaWiki = 'wiki:';
+
+/// `[[Título]]` → link Markdown normal con un esquema propio, para que
+/// `MarkdownBody` lo dibuje como enlace tocable. No toca bloques de código.
+@visibleForTesting
+String conEnlacesWikiParaTest(String md) => _conEnlacesWiki(md);
+
+String _conEnlacesWiki(String md) {
+  var enCodigo = false;
+  return md
+      .split('\n')
+      .map((linea) {
+        final t = linea.trimLeft();
+        if (t.startsWith('```') || t.startsWith('~~~')) enCodigo = !enCodigo;
+        if (enCodigo) return linea;
+        return linea.replaceAllMapped(
+          _reEnlaceWiki,
+          (m) => '[${m[1]}]($_esquemaWiki${Uri.encodeComponent(m[1]!.trim())})',
+        );
+      })
+      .join('\n');
+}
+
 /// Campo de texto largo en Markdown con dos modos: **vista previa** (por
 /// defecto si ya hay contenido) y **edición**. Pensado para textos largos
 /// (recursos, notas): la vista previa vive en una caja con scroll propio y
@@ -15,6 +55,7 @@ class MarkdownField extends StatefulWidget {
     required this.onSave,
     this.hint = 'Escribe aquí… (soporta Markdown)',
     this.tituloLectura,
+    this.enlaces,
   });
 
   final String label;
@@ -26,6 +67,9 @@ class MarkdownField extends StatefulWidget {
 
   /// Título de la pantalla completa de lectura (ej. el nombre del recurso).
   final String? tituloLectura;
+
+  /// Habilita `[[enlaces]]`: sugerencias al escribir y tocar para abrir.
+  final MarkdownEnlaces? enlaces;
 
   @override
   State<MarkdownField> createState() => _MarkdownFieldState();
@@ -117,6 +161,7 @@ class _MarkdownFieldState extends State<MarkdownField> {
           _Editor(
             controller: _controller,
             hint: widget.hint,
+            enlaces: widget.enlaces,
             onChanged: () {
               if (!_dirty) setState(() => _dirty = true);
             },
@@ -126,11 +171,13 @@ class _MarkdownFieldState extends State<MarkdownField> {
         else
           _VistaPrevia(
             texto: texto,
+            enlaces: widget.enlaces,
             onPantallaCompleta: () => Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => MarkdownLecturaScreen(
                   titulo: widget.tituloLectura ?? widget.label,
                   texto: texto,
+                  enlaces: widget.enlaces,
                 ),
               ),
             ),
@@ -180,18 +227,76 @@ class _Vacio extends StatelessWidget {
 }
 
 /// Editor con su propio scroll (alto acotado) y una barra mínima para lo
-/// que cuesta escribir en el teclado del celular: título, negrita, lista y
-/// casilla.
-class _Editor extends StatelessWidget {
+/// que cuesta escribir en el teclado del celular: título, negrita, lista,
+/// casilla y enlace. Si hay [enlaces], al escribir `[[` aparece una fila de
+/// sugerencias con títulos existentes.
+class _Editor extends StatefulWidget {
   const _Editor({
     required this.controller,
     required this.hint,
     required this.onChanged,
+    this.enlaces,
   });
 
   final TextEditingController controller;
   final String hint;
   final VoidCallback onChanged;
+  final MarkdownEnlaces? enlaces;
+
+  @override
+  State<_Editor> createState() => _EditorState();
+}
+
+/// `[[` abierto sin cerrar justo antes del cursor.
+final _reEnlaceAbierto = RegExp(r'\[\[([^\[\]\n]*)$');
+
+class _EditorState extends State<_Editor> {
+  TextEditingController get controller => widget.controller;
+
+  /// Lo escrito después de `[[` (null = no se está escribiendo un enlace).
+  String? _consulta;
+  Future<List<String>>? _sugerencias;
+
+  @override
+  void initState() {
+    super.initState();
+    controller.addListener(_revisarEnlace);
+  }
+
+  @override
+  void dispose() {
+    controller.removeListener(_revisarEnlace);
+    super.dispose();
+  }
+
+  void _revisarEnlace() {
+    final enlaces = widget.enlaces;
+    if (enlaces == null) return;
+    final sel = controller.selection;
+    String? consulta;
+    if (sel.isValid && sel.isCollapsed) {
+      final antes = controller.text.substring(0, sel.start);
+      consulta = _reEnlaceAbierto.firstMatch(antes)?.group(1);
+    }
+    if (consulta == _consulta) return;
+    setState(() {
+      _consulta = consulta;
+      _sugerencias = consulta == null ? null : enlaces.sugerir(consulta);
+    });
+  }
+
+  /// Completa el `[[…` abierto con `[[titulo]]`.
+  void _completar(String titulo) {
+    final texto = controller.text;
+    final pos = controller.selection.start;
+    final inicio = texto.lastIndexOf('[[', pos);
+    final enlace = '[[$titulo]]';
+    controller.value = TextEditingValue(
+      text: texto.replaceRange(inicio, pos, enlace),
+      selection: TextSelection.collapsed(offset: inicio + enlace.length),
+    );
+    widget.onChanged();
+  }
 
   /// Pone [prefijo] al inicio de la línea donde está el cursor.
   void _prefijarLinea(String prefijo) {
@@ -203,25 +308,27 @@ class _Editor extends StatelessWidget {
       text: texto.replaceRange(inicio, inicio, prefijo),
       selection: TextSelection.collapsed(offset: pos + prefijo.length),
     );
-    onChanged();
+    widget.onChanged();
   }
 
-  /// Envuelve la selección con [marca] (ej. `**` para negrita).
-  void _envolver(String marca) {
+  /// Envuelve la selección con [abre]/[cierra] (ej. `**` para negrita).
+  void _envolver(String abre, [String? cierra]) {
     final texto = controller.text;
-    final sel = controller.selection;
-    if (!sel.isValid) return;
+    final sel = controller.selection.isValid
+        ? controller.selection
+        : TextSelection.collapsed(offset: texto.length);
+    final fin = cierra ?? abre;
     final elegido = sel.textInside(texto);
     controller.value = TextEditingValue(
-      text: texto.replaceRange(sel.start, sel.end, '$marca$elegido$marca'),
+      text: texto.replaceRange(sel.start, sel.end, '$abre$elegido$fin'),
       selection: elegido.isEmpty
-          ? TextSelection.collapsed(offset: sel.start + marca.length)
+          ? TextSelection.collapsed(offset: sel.start + abre.length)
           : TextSelection(
-              baseOffset: sel.start + marca.length,
-              extentOffset: sel.end + marca.length,
+              baseOffset: sel.start + abre.length,
+              extentOffset: sel.end + abre.length,
             ),
     );
-    onChanged();
+    widget.onChanged();
   }
 
   @override
@@ -252,15 +359,57 @@ class _Editor extends StatelessWidget {
               tooltip: 'Casilla',
               onPressed: () => _prefijarLinea('- [ ] '),
             ),
+            if (widget.enlaces != null)
+              IconButton(
+                icon: const Icon(Icons.link),
+                tooltip: 'Enlazar a otra nota ([[ ]])',
+                onPressed: () => _envolver('[[', ']]'),
+              ),
           ],
         ),
+        if (_sugerencias != null)
+          FutureBuilder<List<String>>(
+            future: _sugerencias,
+            builder: (context, snapshot) {
+              final titulos = snapshot.data ?? const <String>[];
+              final consulta = _consulta?.trim() ?? '';
+              final existe = titulos.any(
+                (t) => t.toLowerCase() == consulta.toLowerCase(),
+              );
+              return SizedBox(
+                height: 48,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    for (final t in titulos)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ActionChip(
+                          avatar: const Icon(Icons.link, size: 16),
+                          label: Text(t),
+                          onPressed: () => _completar(t),
+                        ),
+                      ),
+                    // Enlazar a algo que todavía no existe: se crea al
+                    // tocar el enlace en la vista previa.
+                    if (consulta.isNotEmpty && !existe)
+                      ActionChip(
+                        avatar: const Icon(Icons.add, size: 16),
+                        label: Text('Nueva: $consulta'),
+                        onPressed: () => _completar(consulta),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
         TextField(
           controller: controller,
           minLines: 8,
           maxLines: 18,
           keyboardType: TextInputType.multiline,
-          decoration: InputDecoration(hintText: hint),
-          onChanged: (_) => onChanged(),
+          decoration: InputDecoration(hintText: widget.hint),
+          onChanged: (_) => widget.onChanged(),
         ),
       ],
     );
@@ -345,9 +494,21 @@ MarkdownStyleSheet _estilo(BuildContext context) {
 
 /// Las secciones una debajo de otra, cada una seleccionable para copiar.
 class _Documento extends StatelessWidget {
-  const _Documento({required this.secciones});
+  const _Documento({required this.secciones, this.enlaces});
 
   final List<_Seccion> secciones;
+  final MarkdownEnlaces? enlaces;
+
+  void _tocarEnlace(BuildContext context, String? href) {
+    if (href == null) return;
+    if (href.startsWith(_esquemaWiki)) {
+      enlaces?.abrir(Uri.decodeComponent(href.substring(_esquemaWiki.length)));
+      return;
+    }
+    // Sin navegador integrado (url_launcher): el enlace externo se copia
+    // para pegarlo donde se quiera.
+    copiarTexto(context, href);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -360,7 +521,8 @@ class _Documento extends StatelessWidget {
             key: s.key,
             padding: const EdgeInsets.only(bottom: 4),
             child: MarkdownBody(
-              data: s.texto,
+              data: enlaces == null ? s.texto : _conEnlacesWiki(s.texto),
+              onTapLink: (_, href, _) => _tocarEnlace(context, href),
               selectable: true,
               styleSheet: estilo,
             ),
@@ -419,9 +581,14 @@ Future<void> _mostrarIndice(BuildContext context, List<_Seccion> secciones) {
 
 /// Vista previa dentro de una caja de alto acotado con scroll propio.
 class _VistaPrevia extends StatefulWidget {
-  const _VistaPrevia({required this.texto, required this.onPantallaCompleta});
+  const _VistaPrevia({
+    required this.texto,
+    required this.onPantallaCompleta,
+    this.enlaces,
+  });
 
   final String texto;
+  final MarkdownEnlaces? enlaces;
   final VoidCallback onPantallaCompleta;
 
   @override
@@ -469,7 +636,10 @@ class _VistaPreviaState extends State<_VistaPrevia> {
               child: SingleChildScrollView(
                 controller: _scroll,
                 padding: const EdgeInsets.fromLTRB(16, 14, 20, 14),
-                child: _Documento(secciones: _secciones),
+                child: _Documento(
+                  secciones: _secciones,
+                  enlaces: widget.enlaces,
+                ),
               ),
             ),
           ),
@@ -509,10 +679,12 @@ class MarkdownLecturaScreen extends StatefulWidget {
     super.key,
     required this.titulo,
     required this.texto,
+    this.enlaces,
   });
 
   final String titulo;
   final String texto;
+  final MarkdownEnlaces? enlaces;
 
   @override
   State<MarkdownLecturaScreen> createState() => _MarkdownLecturaScreenState();
@@ -539,7 +711,7 @@ class _MarkdownLecturaScreenState extends State<MarkdownLecturaScreen> {
       body: Scrollbar(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 48),
-          child: _Documento(secciones: _secciones),
+          child: _Documento(secciones: _secciones, enlaces: widget.enlaces),
         ),
       ),
     );

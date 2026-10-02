@@ -17,6 +17,7 @@ import '../data/entity_repository_provider.dart';
 import '../domain/entity_type.dart';
 import '../../core/widgets/copiar.dart';
 import '../../core/widgets/markdown_field.dart';
+import '../../links/presentation/wiki_links.dart';
 
 const _estados = ['active', 'paused', 'someday', 'archived'];
 
@@ -276,6 +277,7 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
                     tituloLectura: entity.title,
                     hint: 'Escribe tu nota… (soporta Markdown)',
                     onSave: (v) => entityRepo.updateNoteContent(entity.id, v),
+                    enlaces: enlacesWiki(context, ref),
                   ),
                 )
               else
@@ -284,6 +286,7 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
                   value: entity.description,
                   tituloLectura: entity.title,
                   onSave: (v) => entityRepo.updateDescription(entity.id, v),
+                  enlaces: enlacesWiki(context, ref),
                 ),
 
               const SizedBox(height: 24),
@@ -412,6 +415,8 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
                   );
                 },
               ),
+
+              MencionesSection(entity: entity),
 
               const SizedBox(height: 32),
               TextButton.icon(

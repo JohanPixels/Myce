@@ -16,6 +16,9 @@ import 'project_avatar.dart';
 import '../../core/widgets/copiar.dart';
 import '../../core/widgets/renombrar_dialog.dart';
 import '../../entities/data/entity_repository_provider.dart';
+import '../../core/widgets/markdown_field.dart';
+import '../../relations/presentation/add_relation_sheet.dart';
+import '../../links/presentation/wiki_links.dart';
 
 /// Pantalla propia de un Project: cabecera con progreso y tres pestañas —
 /// Tareas (acciones), Observaciones (cosas que notaste, Notes del proyecto)
@@ -132,7 +135,7 @@ class ProjectDetailScreen extends ConsumerWidget {
             ],
           ),
           body: DefaultTabController(
-            length: 3,
+            length: 4,
             child: NestedScrollView(
               headerSliverBuilder: (context, _) => [
                 SliverToBoxAdapter(
@@ -153,14 +156,18 @@ class ProjectDetailScreen extends ConsumerWidget {
                   pinned: true,
                   delegate: _TabBarDelegate(
                     TabBar(
+                      // 4 pestañas en el ancho de un celular: sin el padding
+                      // por defecto (16 a cada lado) "Requisitos" no cabe.
+                      labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                       indicatorColor: projectColor(
                         context,
                         summary.project?.color,
                       ),
                       tabs: const [
                         Tab(text: 'Tareas'),
-                        Tab(text: 'Observaciones'),
+                        Tab(text: 'Notas'),
                         Tab(text: 'Requisitos'),
+                        Tab(text: 'Contexto'),
                       ],
                     ),
                     Theme.of(context).scaffoldBackgroundColor,
@@ -170,8 +177,9 @@ class ProjectDetailScreen extends ConsumerWidget {
               body: TabBarView(
                 children: [
                   _TareasTab(projectId: projectId),
-                  _ObservacionesTab(projectId: projectId),
+                  _NotasTab(projectId: projectId),
                   _RequisitosTab(projectId: projectId),
+                  _ContextoTab(summary: summary),
                 ],
               ),
             ),
@@ -820,17 +828,32 @@ class _Vacio extends StatelessWidget {
   }
 }
 
-class _ObservacionesTab extends ConsumerStatefulWidget {
-  const _ObservacionesTab({required this.projectId});
+class _NotasTab extends ConsumerStatefulWidget {
+  const _NotasTab({required this.projectId});
 
   final String projectId;
 
   @override
-  ConsumerState<_ObservacionesTab> createState() => _ObservacionesTabState();
+  ConsumerState<_NotasTab> createState() => _NotasTabState();
 }
 
-class _ObservacionesTabState extends ConsumerState<_ObservacionesTab> {
+class _NotasTabState extends ConsumerState<_NotasTab> {
   bool _esIdea = false;
+
+  Future<void> _nuevoDocumento(BuildContext context) async {
+    final titulo = await pedirNuevoTexto(
+      context,
+      titulo: 'Nuevo documento',
+      actual: '',
+      maxLength: 200,
+    );
+    if (titulo == null || !context.mounted) return;
+    final id = await ref
+        .read(projectRepositoryProvider)
+        .addDocument(widget.projectId, titulo);
+    // Se abre para escribirlo (el contenido arranca en modo edición).
+    if (context.mounted) pushEntityDetail(context, id);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -838,12 +861,44 @@ class _ObservacionesTabState extends ConsumerState<_ObservacionesTab> {
     final theme = Theme.of(context);
 
     return StreamBuilder<List<ProjectNoteItem>>(
-      stream: repo.watchObservations(widget.projectId),
+      stream: repo.watchNotes(widget.projectId),
       builder: (context, snapshot) {
-        final items = snapshot.data ?? const <ProjectNoteItem>[];
+        final todas = snapshot.data ?? const <ProjectNoteItem>[];
+        final documentos = todas.where((n) => n.isDocument).toList();
+        final items = todas.where((n) => !n.isDocument).toList();
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
           children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _TituloSeccion(
+                    texto: 'Documentos',
+                    cantidad: documentos.length,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Nuevo'),
+                    onPressed: () => _nuevoDocumento(context),
+                  ),
+                ),
+              ],
+            ),
+            if (documentos.isEmpty)
+              const _Vacio(
+                texto:
+                    'Especificaciones, guías, decisiones… lo que quieras '
+                    'tener a mano. Se escriben en Markdown.',
+              )
+            else
+              for (final d in documentos) _DocumentoCard(item: d),
+            _TituloSeccion(
+              texto: 'Observaciones e ideas',
+              cantidad: items.length,
+            ),
             _CampoRapido(
               hint: _esIdea ? 'Anotar una idea…' : 'Anotar algo que notaste…',
               onSubmit: (texto) =>
@@ -1123,6 +1178,214 @@ class _RequisitoTile extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DocumentoCard extends StatelessWidget {
+  const _DocumentoCard({required this.item});
+
+  final ProjectNoteItem item;
+
+  /// Primeras líneas con texto, sin la sintaxis de Markdown más ruidosa.
+  String? get _vistaPrevia {
+    final lineas = (item.content ?? '')
+        .split('\n')
+        .map((l) => l.replaceAll(RegExp(r'^[#>\-\*\s\[\]x]+'), '').trim())
+        .where((l) => l.isNotEmpty && !l.startsWith('```'))
+        .take(2)
+        .join(' · ');
+    return lineas.isEmpty ? null : lineas;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final previa = _vistaPrevia;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => pushEntityDetail(context, item.note.id),
+        onLongPress: () =>
+            copiarTexto(context, tituloYCuerpo(item.note.title, item.content)),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.description_outlined,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.note.title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      previa ?? 'Vacío — toca para escribir',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Todo lo que rodea al proyecto: de qué se trata (Markdown) y con qué está
+/// conectado — Meta/Área, Recursos, Personas, otras conexiones.
+class _ContextoTab extends ConsumerWidget {
+  const _ContextoTab({required this.summary});
+
+  final ProjectSummary summary;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repo = ref.watch(projectRepositoryProvider);
+    final entityRepo = ref.watch(entityRepositoryProvider);
+    final projectId = summary.entity.id;
+
+    return StreamBuilder<List<ProjectContextItem>>(
+      stream: repo.watchContext(projectId),
+      builder: (context, snapshot) {
+        final items = snapshot.data ?? const <ProjectContextItem>[];
+        List<ProjectContextItem> de(ProjectContextGroup g) =>
+            items.where((i) => i.group == g).toList();
+
+        Widget grupo(
+          String titulo,
+          ProjectContextGroup g,
+          String vacio, {
+          bool siempre = true,
+        }) {
+          final lista = de(g);
+          if (!siempre && lista.isEmpty) return const SizedBox.shrink();
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _TituloSeccion(
+                      texto: titulo,
+                      cantidad: lista.length,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.add_link, size: 18),
+                      label: const Text('Conectar'),
+                      onPressed: () =>
+                          mostrarAgregarRelacionSheet(context, ref, projectId),
+                    ),
+                  ),
+                ],
+              ),
+              if (lista.isEmpty)
+                _Vacio(texto: vacio)
+              else
+                for (final item in lista)
+                  _ConexionTile(
+                    item: item,
+                    onQuitar: () => repo.disconnect(item.relationId),
+                  ),
+            ],
+          );
+        }
+
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+          children: [
+            MarkdownField(
+              label: 'Sobre el proyecto',
+              value: summary.entity.description,
+              tituloLectura: summary.entity.title,
+              hint:
+                  'De qué se trata, para qué es, decisiones importantes… '
+                  '(soporta Markdown)',
+              onSave: (v) => entityRepo.updateDescription(projectId, v),
+              enlaces: enlacesWiki(context, ref),
+            ),
+            grupo(
+              'Pertenece a',
+              ProjectContextGroup.belongsTo,
+              'Conéctalo a la Meta o el Área que empuja.',
+            ),
+            grupo(
+              'Recursos',
+              ProjectContextGroup.resources,
+              'Cursos, repos, videos, enlaces que usas en este proyecto.',
+            ),
+            grupo(
+              'Personas',
+              ProjectContextGroup.people,
+              'Quién colabora, quién te inspira, a quién le preguntas.',
+            ),
+            grupo(
+              'Otras conexiones',
+              ProjectContextGroup.other,
+              '',
+              siempre: false,
+            ),
+            MencionesSection(entity: summary.entity),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ConexionTile extends StatelessWidget {
+  const _ConexionTile({required this.item, required this.onQuitar});
+
+  final ProjectContextItem item;
+  final VoidCallback onQuitar;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final type = item.entity.type.toEntityType();
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        title: Text(item.entity.title),
+        subtitle: Text(
+          type.label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        onTap: () => pushEntityDetail(context, item.entity.id),
+        onLongPress: () => copiarTexto(context, item.entity.title),
+        trailing: IconButton(
+          icon: const Icon(Icons.link_off),
+          tooltip: 'Quitar conexión',
+          onPressed: onQuitar,
         ),
       ),
     );
