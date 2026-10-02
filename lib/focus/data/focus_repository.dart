@@ -26,23 +26,33 @@ class FocusRepository {
   FocusRepository(this._db);
   final AppDatabase _db;
 
-  Stream<List<FocusItem>> watchOpenTasks() => _db
+  Stream<List<FocusItem>> watchOpenTasks() => _watch(soloParaHacer: true);
+
+  /// Todas las tareas (abiertas y cerradas, de cualquier proyecto) con su
+  /// contexto — para la pestaña Tareas, que es el inventario completo.
+  /// Sigue sin incluir requisitos.
+  Stream<List<FocusItem>> watchAllTasks() => _watch(soloParaHacer: false);
+
+  Stream<List<FocusItem>> _watch({required bool soloParaHacer}) => _db
       .customSelect(
         'SELECT 1',
         readsFrom: {_db.tasks, _db.activityLinks, _db.entities, _db.projects},
       )
       .watch()
-      .asyncMap((_) => _load());
+      .asyncMap((_) => _load(soloParaHacer: soloParaHacer));
 
-  Future<List<FocusItem>> _load() async {
+  /// [soloParaHacer]: solo abiertas y fuera las de proyectos no activos.
+  Future<List<FocusItem>> _load({required bool soloParaHacer}) async {
     final tareas =
         await (_db.select(_db.tasks)..where(
               (t) =>
                   t.deletedAt.isNull() &
-                  t.status.isIn([
-                    TaskStatus.pending.name,
-                    TaskStatus.inProgress.name,
-                  ]),
+                  (soloParaHacer
+                      ? t.status.isIn([
+                          TaskStatus.pending.name,
+                          TaskStatus.inProgress.name,
+                        ])
+                      : const Constant(true)),
             ))
             .get();
     if (tareas.isEmpty) return [];
@@ -88,7 +98,7 @@ class FocusRepository {
           entity != null &&
           entity.type == EntityType.project.name &&
           entity.status != EntityStatus.active.name;
-      if (esProyectoInactivo) continue;
+      if (soloParaHacer && esProyectoInactivo) continue;
       items.add(FocusItem(task: t, entity: entity, project: ctx?.$2));
     }
     items.sort((a, b) => compararPorPlan(a.task, b.task));

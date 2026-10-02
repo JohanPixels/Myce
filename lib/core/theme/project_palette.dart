@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 /// (`projects.color`), no el valor — así el mismo proyecto se ve bien en
 /// tema claro y oscuro, y la paleta se puede retocar sin migrar datos.
 const projectPaletteKeys = [
+  'moss',
   'cyan',
   'orange',
   'violet',
@@ -15,6 +16,7 @@ const projectPaletteKeys = [
 ];
 
 const _dark = {
+  'moss': Color(0xFFC5E06A),
   'cyan': Color(0xFF2BD9F5),
   'orange': Color(0xFFFF7A1A),
   'violet': Color(0xFFB9A4FF),
@@ -26,6 +28,7 @@ const _dark = {
 };
 
 const _light = {
+  'moss': Color(0xFF55700F),
   'cyan': Color(0xFF0091A8),
   'orange': Color(0xFFD95E00),
   'violet': Color(0xFF6B4FD8),
@@ -38,10 +41,10 @@ const _light = {
 
 /// Color del proyecto para el tema actual; sin clave (o clave desconocida,
 /// ej. una que vino de otro dispositivo con una versión más nueva) cae en
-/// cyan, el color de la marca.
+/// musgo, el color de la marca.
 Color projectColor(BuildContext context, String? key) {
   final palette = Theme.of(context).brightness == Brightness.dark
       ? _dark
       : _light;
-  return palette[key] ?? palette['cyan']!;
+  return palette[key] ?? palette['moss']!;
 }

@@ -32,6 +32,15 @@ Contexto de proyecto para Claude Code. Referencia completa del modelo: `docs/fue
    - Tocar la sección activa en la barra inferior vuelve a su pantalla principal (`goBranch(initialLocation: true)`) y dispara sync.
    - Estado del proyecto editable desde su pantalla (pastilla en la cabecera o ⋮ → Cambiar estado).
    - Inbox: deslizar para eliminar (soft-delete con Deshacer → `InboxRepository.restore`) y menú Editar/Copiar/Eliminar.
+10. **Ahora, Metas, enlaces y rediseño musgo (2026-10-02)** — probado en Android real:
+   - **Sección "Ahora"** (`lib/focus/`, primera sección y `initialLocation`): tareas abiertas de toda la app (proyectos activos, vinculadas a otras Entities y sueltas; sin requisitos ni proyectos no activos), agrupadas Ahora/Siguiente/Después con filtro "Tengo…" y captura directa a Ahora. `FocusRepository.watchAllTasks` alimenta también la pestaña Tareas; fila compartida `focus/presentation/task_tile.dart`.
+   - **Metas** (`lib/goals/`): cada Meta con los proyectos conectados por cualquier relación y su avance agregado.
+   - **Enlaces `[[Título]]`** (`lib/links/`): se resuelven por título en el momento (sin tabla; renombrar no actualiza los enlaces viejos). Autocompletado al escribir `[[`, tocar abre o crea la Nota, sección "Mencionado en". `MarkdownField(enlaces: enlacesWiki(context, ref))`.
+   - Proyecto con pestañas Tareas/Notas/Requisitos/Contexto: **Documentos** = Notes `belongs_to` + tag `documento` (las Observaciones son las que no lo tienen); **Contexto** = "Sobre el proyecto" (`entities.description`) + conexiones agrupadas.
+   - Buscador también encuentra Tasks; tipos de relación en español solo en UI (`relations/domain/relation_labels.dart`); `publishableKey`.
+   - Barra inferior tipo carrusel (`core/navigation/carousel_nav_bar.dart`); botón + que se esconde al bajar y en detalles, posición configurable (`settings/capture_button_preference.dart`).
+   - **Paleta musgo** (preferida por el usuario sobre cyan/naranja del logo): `#11140F` fondo, lima `#C5E06A` primary, ámbar `#F0A75A` atención; versión clara oliva. Project color por defecto `moss`.
+   - **Capturas de pantalla para revisar diseño:** `flutter test tool/screenshots/screens_test.dart --update-goldens` → PNGs en `tool/screenshots/out/` (gitignored), dark y light, con datos sembrados. Fuera de `test/` para no correr con la suite.
 
 ## Qué es Myce
 
@@ -56,6 +65,7 @@ flutter run -d linux                                       # loop de desarrollo 
 flutter run -d <device-id>                                 # Android es el target de producción real; probar ahí antes de dar por buena una feature (`flutter devices` para listar)
 flutter test                                                # correr toda la suite
 flutter test test/entity_migration_test.dart                # test del flujo Inbox→Entity y de la limpieza de activity_links
+flutter test tool/screenshots/screens_test.dart --update-goldens  # renderiza las pantallas a PNG (tool/screenshots/out/) para revisar diseño
 ```
 
 ## Estructura de carpetas (feature-based)

@@ -249,8 +249,11 @@ class _Cabecera extends StatelessWidget {
                       onTap: onTapTitulo,
                       child: Text(
                         entity.title,
-                        style: theme.textTheme.headlineSmall?.copyWith(
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.w800,
+                          height: 1.05,
                         ),
                       ),
                     ),
@@ -323,6 +326,7 @@ class _Cabecera extends StatelessWidget {
           _CampoRapido(
             hint: 'Anotar algo en ${entity.title}…',
             onSubmit: onCapture,
+            textoBoton: 'Anotar',
           ),
           if (summary.unclassified > 0) ...[
             SizedBox(height: spacing.sm + 2),
@@ -429,11 +433,25 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
 /// Campo de captura rápida al tope de cada pestaña. UI optimista: no espera
 /// a la base — limpia y sigue, el stream refresca la lista solo.
 class _CampoRapido extends StatefulWidget {
-  const _CampoRapido({required this.hint, required this.onSubmit, this.debajo});
+  const _CampoRapido({
+    required this.hint,
+    required this.onSubmit,
+    this.debajo,
+    this.colapsado,
+    this.textoBoton,
+  });
 
   final String hint;
   final void Function(String texto) onSubmit;
   final Widget? debajo;
+
+  /// Si se da, el campo arranca escondido detrás de un botón con este texto
+  /// (ej. "Nueva tarea") — así la pantalla no muestra dos campos de texto
+  /// casi iguales (el "Anotar…" de la cabecera ya es la entrada principal).
+  final String? colapsado;
+
+  /// Botón con texto en vez del ícono + (ej. "Anotar", como en el mockup).
+  final String? textoBoton;
 
   @override
   State<_CampoRapido> createState() => _CampoRapidoState();
@@ -441,10 +459,26 @@ class _CampoRapido extends StatefulWidget {
 
 class _CampoRapidoState extends State<_CampoRapido> {
   final _controller = TextEditingController();
+  final _foco = FocusNode();
+  late bool _abierto = widget.colapsado == null;
+
+  @override
+  void initState() {
+    super.initState();
+    // Al perder el foco sin haber escrito nada, vuelve a ser un botón.
+    _foco.addListener(() {
+      if (!_foco.hasFocus &&
+          widget.colapsado != null &&
+          _controller.text.trim().isEmpty) {
+        setState(() => _abierto = false);
+      }
+    });
+  }
 
   @override
   void dispose() {
     _controller.dispose();
+    _foco.dispose();
     super.dispose();
   }
 
@@ -453,29 +487,51 @@ class _CampoRapidoState extends State<_CampoRapido> {
     if (texto.isEmpty) return;
     widget.onSubmit(texto);
     _controller.clear();
+    _foco.requestFocus(); // seguir anotando sin volver a tocar
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_abierto) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          icon: const Icon(Icons.add, size: 20),
+          label: Text(widget.colapsado!),
+          onPressed: () {
+            setState(() => _abierto = true);
+            _foco.requestFocus();
+          },
+        ),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextField(
           controller: _controller,
+          focusNode: _foco,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _enviar(),
           decoration: InputDecoration(
             hintText: widget.hint,
-            filled: true,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
-            ),
-            suffixIcon: IconButton(
-              icon: const Icon(Icons.add),
-              tooltip: 'Agregar',
-              onPressed: _enviar,
-            ),
+            suffixIcon: widget.textoBoton == null
+                ? IconButton(
+                    icon: const Icon(Icons.add),
+                    tooltip: 'Agregar',
+                    onPressed: _enviar,
+                  )
+                : Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 40),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      onPressed: _enviar,
+                      child: Text(widget.textoBoton!),
+                    ),
+                  ),
           ),
         ),
         ?widget.debajo,
@@ -629,6 +685,7 @@ class _TareasTabState extends ConsumerState<_TareasTab> {
           children: [
             _CampoRapido(
               hint: 'Nueva tarea…',
+              colapsado: 'Nueva tarea',
               onSubmit: (texto) => repo.addTask(widget.projectId, texto),
             ),
             const SizedBox(height: 12),
@@ -900,6 +957,7 @@ class _NotasTabState extends ConsumerState<_NotasTab> {
               cantidad: items.length,
             ),
             _CampoRapido(
+              colapsado: 'Nueva observación o idea',
               hint: _esIdea ? 'Anotar una idea…' : 'Anotar algo que notaste…',
               onSubmit: (texto) =>
                   repo.addObservation(widget.projectId, texto, idea: _esIdea),
@@ -1112,6 +1170,7 @@ class _RequisitosTab extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             _CampoRapido(
+              colapsado: 'Nuevo requisito',
               hint: 'Nuevo requisito…',
               onSubmit: (texto) => repo.addRequirement(projectId, texto),
             ),

@@ -21,7 +21,7 @@ class OctoDashColors extends ThemeExtension<OctoDashColors> {
   final Color estancado;
 
   /// Lo que pide atención ya: tareas "En curso", proyecto sin próxima
-  /// acción. Naranja eléctrico del logo de Myce.
+  /// acción. Ámbar de la paleta musgo.
   final Color enCurso;
 
   /// Texto/ícono sobre un fondo `enCurso` sólido (badges).
@@ -33,7 +33,7 @@ class OctoDashColors extends ThemeExtension<OctoDashColors> {
     recurso: Color(0xFFF2994A),
     wishlist: Color(0xFF9B51E0),
     estancado: Color(0xFFEB5757),
-    enCurso: Color(0xFFD95E00),
+    enCurso: Color(0xFFAD5A0C),
     onEnCurso: Color(0xFFFFFFFF),
   );
 
@@ -43,8 +43,8 @@ class OctoDashColors extends ThemeExtension<OctoDashColors> {
     recurso: Color(0xFFF2C94C),
     wishlist: Color(0xFFBB6BD9),
     estancado: Color(0xFFFF6B6B),
-    enCurso: Color(0xFFFF7A1A),
-    onEnCurso: Color(0xFF1F0C00),
+    enCurso: Color(0xFFF0A75A),
+    onEnCurso: Color(0xFF1F1608),
   );
 
   @override
@@ -133,41 +133,44 @@ extension OctoThemeX on BuildContext {
       Theme.of(this).extension<OctoDashSpacing>()!;
 }
 
-/// Paleta de Myce, sacada del logo: cyan (marca, acciones) y naranja
-/// eléctrico (atención, `OctoDashColors.enCurso`) sobre negro azulado.
+/// Paleta de Myce: musgo. Verde lima (marca, acciones, progreso) y ámbar
+/// (atención: "Ahora", sin clasificar — `OctoDashColors.enCurso`) sobre un
+/// fondo verde casi negro. Es la paleta del primer mockup
+/// (https://claude.ai/artifact/Taq2p9VCVkCMScfNeMzVuB); se probó una versión
+/// cyan/naranja sacada del logo y el usuario prefirió esta.
 /// Los esquemas se arman a mano en vez de `colorSchemeSeed` porque el seed
-/// genera grises neutros que no tienen nada que ver con el logo.
+/// genera grises neutros que no tienen nada que ver con la paleta.
 const _oscuro = ColorScheme(
   brightness: Brightness.dark,
-  primary: Color(0xFF2BD9F5),
-  onPrimary: Color(0xFF021218),
-  primaryContainer: Color(0xFF0B3A46),
-  onPrimaryContainer: Color(0xFFB8F3FC),
-  secondary: Color(0xFF7BEBFA),
-  onSecondary: Color(0xFF021218),
-  secondaryContainer: Color(0xFF16313D),
-  onSecondaryContainer: Color(0xFFCDEFF6),
-  tertiary: Color(0xFFFF7A1A),
-  onTertiary: Color(0xFF1F0C00),
-  tertiaryContainer: Color(0xFF3A1A06),
-  onTertiaryContainer: Color(0xFFFFD2B3),
-  error: Color(0xFFFF6B6B),
-  onError: Color(0xFF2A0606),
-  errorContainer: Color(0xFF4A1414),
-  onErrorContainer: Color(0xFFFFD6D6),
-  surface: Color(0xFF080B11),
-  onSurface: Color(0xFFE8F1F7),
-  onSurfaceVariant: Color(0xFF93A3B5),
-  surfaceContainerLowest: Color(0xFF05070B),
-  surfaceContainerLow: Color(0xFF0C1118),
-  surfaceContainer: Color(0xFF0F151E),
-  surfaceContainerHigh: Color(0xFF131A25),
-  surfaceContainerHighest: Color(0xFF172030),
-  outline: Color(0xFF4D5C70),
-  outlineVariant: Color(0xFF212B39),
-  inverseSurface: Color(0xFFE8F1F7),
-  onInverseSurface: Color(0xFF0F151E),
-  inversePrimary: Color(0xFF0091A8),
+  primary: Color(0xFFC5E06A),
+  onPrimary: Color(0xFF1A1E10),
+  primaryContainer: Color(0xFF34401A),
+  onPrimaryContainer: Color(0xFFE3F2B4),
+  secondary: Color(0xFFA9C25A),
+  onSecondary: Color(0xFF1A1E10),
+  secondaryContainer: Color(0xFF2A3120),
+  onSecondaryContainer: Color(0xFFDDE8BE),
+  tertiary: Color(0xFFF0A75A),
+  onTertiary: Color(0xFF1F1608),
+  tertiaryContainer: Color(0xFF2A2416),
+  onTertiaryContainer: Color(0xFFF7D9B4),
+  error: Color(0xFFFF8A7A),
+  onError: Color(0xFF2A0A06),
+  errorContainer: Color(0xFF4A1C16),
+  onErrorContainer: Color(0xFFFFD9D3),
+  surface: Color(0xFF11140F),
+  onSurface: Color(0xFFEEEDE4),
+  onSurfaceVariant: Color(0xFFA3A897),
+  surfaceContainerLowest: Color(0xFF0B0D09),
+  surfaceContainerLow: Color(0xFF151912),
+  surfaceContainer: Color(0xFF1A1E17),
+  surfaceContainerHigh: Color(0xFF1F241B),
+  surfaceContainerHighest: Color(0xFF232820),
+  outline: Color(0xFF5A6150),
+  outlineVariant: Color(0xFF2E3429),
+  inverseSurface: Color(0xFFEEEDE4),
+  onInverseSurface: Color(0xFF1A1E17),
+  inversePrimary: Color(0xFF5C7A12),
   shadow: Color(0xFF000000),
   scrim: Color(0xFF000000),
   surfaceTint: Colors.transparent,
@@ -175,35 +178,35 @@ const _oscuro = ColorScheme(
 
 const _claro = ColorScheme(
   brightness: Brightness.light,
-  primary: Color(0xFF00839A),
+  primary: Color(0xFF55700F),
   onPrimary: Color(0xFFFFFFFF),
-  primaryContainer: Color(0xFFC9F4FB),
-  onPrimaryContainer: Color(0xFF00313A),
-  secondary: Color(0xFF2F6F7D),
+  primaryContainer: Color(0xFFE2EFB8),
+  onPrimaryContainer: Color(0xFF1C2604),
+  secondary: Color(0xFF5E6B3A),
   onSecondary: Color(0xFFFFFFFF),
-  secondaryContainer: Color(0xFFDDEFF3),
-  onSecondaryContainer: Color(0xFF0D2A31),
-  tertiary: Color(0xFFD95E00),
+  secondaryContainer: Color(0xFFE4E9D2),
+  onSecondaryContainer: Color(0xFF1E2410),
+  tertiary: Color(0xFFAD5A0C),
   onTertiary: Color(0xFFFFFFFF),
-  tertiaryContainer: Color(0xFFFFE3CF),
-  onTertiaryContainer: Color(0xFF3A1700),
-  error: Color(0xFFC62828),
+  tertiaryContainer: Color(0xFFFBE6CF),
+  onTertiaryContainer: Color(0xFF3A1E02),
+  error: Color(0xFFB3261E),
   onError: Color(0xFFFFFFFF),
-  errorContainer: Color(0xFFFFDAD6),
-  onErrorContainer: Color(0xFF410002),
-  surface: Color(0xFFF4F7FA),
-  onSurface: Color(0xFF0B1520),
-  onSurfaceVariant: Color(0xFF526273),
+  errorContainer: Color(0xFFF9DEDC),
+  onErrorContainer: Color(0xFF410E0B),
+  surface: Color(0xFFF3F4EC),
+  onSurface: Color(0xFF1B1F16),
+  onSurfaceVariant: Color(0xFF575E4D),
   surfaceContainerLowest: Color(0xFFFFFFFF),
-  surfaceContainerLow: Color(0xFFFFFFFF),
+  surfaceContainerLow: Color(0xFFF8F9F3),
   surfaceContainer: Color(0xFFFFFFFF),
-  surfaceContainerHigh: Color(0xFFEDF2F6),
-  surfaceContainerHighest: Color(0xFFE4EBF1),
-  outline: Color(0xFF8595A6),
-  outlineVariant: Color(0xFFD6DFE7),
-  inverseSurface: Color(0xFF0F151E),
-  onInverseSurface: Color(0xFFE8F1F7),
-  inversePrimary: Color(0xFF2BD9F5),
+  surfaceContainerHigh: Color(0xFFECEEE3),
+  surfaceContainerHighest: Color(0xFFE3E6D8),
+  outline: Color(0xFF8C927F),
+  outlineVariant: Color(0xFFD9DCCD),
+  inverseSurface: Color(0xFF1A1E17),
+  onInverseSurface: Color(0xFFEEEDE4),
+  inversePrimary: Color(0xFFC5E06A),
   shadow: Color(0xFF000000),
   scrim: Color(0xFF000000),
   surfaceTint: Colors.transparent,
@@ -243,6 +246,15 @@ TextTheme _textTheme(TextTheme base) {
           spacing: -0.3,
         ),
         titleLarge: titulo(base.titleLarge, FontWeight.w700, spacing: -0.2),
+        // Texto de tareas, ítems y campos: un punto más chico y más peso que
+        // el default de Material (16/400) — en la captura se veía grande y
+        // flojo frente al mockup (15/500).
+        bodyLarge: base.bodyLarge?.copyWith(
+          fontFamily: _fuenteTexto,
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          height: 1.35,
+        ),
       );
 }
 
@@ -266,7 +278,13 @@ ThemeData _buildTheme(ColorScheme scheme, OctoDashColors colores) {
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
-      titleTextStyle: text.titleLarge?.copyWith(color: scheme.onSurface),
+      // Título de sección grande, como en el mockup ("Proyectos" en
+      // Bricolage): da jerarquía y hace obvio en qué sección estás.
+      titleTextStyle: text.headlineSmall?.copyWith(
+        color: scheme.onSurface,
+        fontSize: 26,
+        fontWeight: FontWeight.w800,
+      ),
     ),
     cardTheme: CardThemeData(
       color: scheme.surfaceContainer,
@@ -347,7 +365,8 @@ ThemeData _buildTheme(ColorScheme scheme, OctoDashColors colores) {
       showCheckmark: false,
       // El color del label depende de si el chip está elegido (fondo cyan
       // sólido) — un WidgetStateColor, que Chip resuelve por estado.
-      labelStyle: text.labelLarge?.copyWith(
+      labelStyle: text.labelMedium?.copyWith(
+        fontSize: 13,
         fontWeight: FontWeight.w700,
         color: WidgetStateColor.resolveWith(
           (estados) => estados.contains(WidgetState.selected)
@@ -357,7 +376,8 @@ ThemeData _buildTheme(ColorScheme scheme, OctoDashColors colores) {
       ),
       side: BorderSide(color: scheme.outline),
       shape: const StadiumBorder(),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      labelPadding: const EdgeInsets.symmetric(horizontal: 8),
     ),
     checkboxTheme: CheckboxThemeData(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),

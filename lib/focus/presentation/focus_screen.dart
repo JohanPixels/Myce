@@ -4,13 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../activities/data/task_repository_provider.dart';
 import '../../activities/domain/task_enums.dart';
 import '../../activities/presentation/task_plan_sheet.dart';
-import '../../core/navigation/navigation_helpers.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/widgets/copiar.dart';
-import '../../entities/domain/entity_type.dart';
-import '../../projects/presentation/project_avatar.dart';
 import '../data/focus_repository.dart';
 import '../data/focus_repository_provider.dart';
+import 'task_tile.dart';
 
 /// Cuántas tareas de "Siguiente" se muestran antes de "Ver todas".
 const _siguienteVisibles = 5;
@@ -84,7 +81,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
             )
             .length;
 
-        Widget tile(FocusItem item) => _FocusTile(
+        Widget tile(FocusItem item) => TaskTile(
           item: item,
           onPlan: () => mostrarPlanTareaSheet(
             context,
@@ -258,125 +255,6 @@ class _Vacio extends StatelessWidget {
         texto,
         style: theme.textTheme.bodyMedium?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
-        ),
-      ),
-    );
-  }
-}
-
-class _FocusTile extends ConsumerWidget {
-  const _FocusTile({required this.item, required this.onPlan});
-
-  final FocusItem item;
-  final VoidCallback onPlan;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final atencion = context.octoColors.enCurso;
-    final tarea = item.task;
-    final enAhora = tarea.horizon.toTaskHorizon() == TaskHorizon.now;
-    final enCurso = tarea.status == TaskStatus.inProgress.name;
-    final size = tarea.size.toTaskSize();
-    final entity = item.entity;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: enAhora
-              ? atencion.withValues(alpha: 0.5)
-              : theme.colorScheme.outlineVariant,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => pushTaskDetail(context, tarea.id),
-        onLongPress: () =>
-            copiarTexto(context, tituloYCuerpo(tarea.title, tarea.description)),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(4, 4, 0, 4),
-          child: Row(
-            children: [
-              Checkbox(
-                value: false,
-                onChanged: (_) => ref
-                    .read(taskRepositoryProvider)
-                    .changeStatus(tarea.id, TaskStatus.completed),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(tarea.title, style: theme.textTheme.bodyLarge),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        if (entity?.type == EntityType.project.name) ...[
-                          ProjectAvatar(
-                            title: entity!.title,
-                            emoji: item.project?.emoji,
-                            colorKey: item.project?.color,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 6),
-                        ],
-                        Flexible(
-                          child: Text(
-                            entity == null
-                                ? 'Suelta'
-                                : entity.type == EntityType.project.name
-                                ? entity.title
-                                : '${entity.type.toEntityType().label} · '
-                                      '${entity.title}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                        if (enCurso) ...[
-                          const SizedBox(width: 6),
-                          Text(
-                            '· En curso',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: atencion,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              if (size != null)
-                Container(
-                  margin: const EdgeInsets.only(left: 8),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    size.label,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              IconButton(
-                icon: const Icon(Icons.more_horiz),
-                tooltip: 'Cuándo y cuánto tiempo',
-                onPressed: onPlan,
-              ),
-            ],
-          ),
         ),
       ),
     );

@@ -187,9 +187,13 @@ class _AppShellState extends ConsumerState<AppShell>
               ),
             ),
           ),
-          bottomNavigationBar: Material(
-            color: colors.surface,
-            elevation: 3,
+          bottomNavigationBar: DecoratedBox(
+            // Fondo un tono distinto y línea arriba: la barra se separa del
+            // contenido sin sombra (estilo plano del resto de la app).
+            decoration: BoxDecoration(
+              color: colors.surfaceContainerLow,
+              border: Border(top: BorderSide(color: colors.outlineVariant)),
+            ),
             child: SafeArea(
               top: false,
               child: CarouselNavBar(

@@ -53,13 +53,52 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         final items = snapshot.data!
             .where((i) => !_ocultos.contains(i.id))
             .toList();
+        final theme = Theme.of(context);
         if (items.isEmpty) {
-          return const Center(child: Text('Inbox vacío 🌱'));
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.inbox_outlined,
+                    size: 48,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(height: 12),
+                  Text('Inbox vacío', style: theme.textTheme.titleLarge),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Captura lo que se te ocurra con el + y decide después '
+                    'qué es.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
         }
         return ListView.builder(
-          itemCount: items.length,
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
+          itemCount: items.length + 1,
           itemBuilder: (context, i) {
-            final item = items[i];
+            if (i == 0) {
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+                child: Text(
+                  '${items.length} por clasificar · toca para decidir qué es, '
+                  'desliza para borrar',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              );
+            }
+            final item = items[i - 1];
             // Deslizar hacia cualquier lado elimina (con "Deshacer").
             return Dismissible(
               key: ValueKey(item.id),
@@ -68,34 +107,46 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                 alignment: Alignment.centerRight,
               ),
               onDismissed: (_) => _eliminar(item.id),
-              child: ListTile(
-                title: Text(item.content),
-                subtitle: Text(_hace(item.createdAt)),
-                onTap: () => _clasificar(context, ref, item.id),
-                onLongPress: () => copiarTexto(context, item.content),
-                trailing: PopupMenuButton<String>(
-                  tooltip: 'Opciones',
-                  onSelected: (accion) async {
-                    switch (accion) {
-                      case 'editar':
-                        final nuevo = await pedirNuevoTexto(
-                          context,
-                          titulo: 'Editar captura',
-                          actual: item.content,
-                          multilinea: true,
-                        );
-                        if (nuevo != null) repo.updateContent(item.id, nuevo);
-                      case 'copiar':
-                        if (context.mounted) copiarTexto(context, item.content);
-                      case 'eliminar':
-                        if (context.mounted) _eliminar(item.id);
-                    }
-                  },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'editar', child: Text('Editar')),
-                    PopupMenuItem(value: 'copiar', child: Text('Copiar')),
-                    PopupMenuItem(value: 'eliminar', child: Text('Eliminar')),
-                  ],
+              child: Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                clipBehavior: Clip.antiAlias,
+                child: ListTile(
+                  contentPadding: const EdgeInsets.fromLTRB(16, 4, 4, 4),
+                  title: Text(item.content),
+                  subtitle: Text(
+                    _hace(item.createdAt),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  onTap: () => _clasificar(context, ref, item.id),
+                  onLongPress: () => copiarTexto(context, item.content),
+                  trailing: PopupMenuButton<String>(
+                    tooltip: 'Opciones',
+                    onSelected: (accion) async {
+                      switch (accion) {
+                        case 'editar':
+                          final nuevo = await pedirNuevoTexto(
+                            context,
+                            titulo: 'Editar captura',
+                            actual: item.content,
+                            multilinea: true,
+                          );
+                          if (nuevo != null) repo.updateContent(item.id, nuevo);
+                        case 'copiar':
+                          if (context.mounted) {
+                            copiarTexto(context, item.content);
+                          }
+                        case 'eliminar':
+                          if (context.mounted) _eliminar(item.id);
+                      }
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'editar', child: Text('Editar')),
+                      PopupMenuItem(value: 'copiar', child: Text('Copiar')),
+                      PopupMenuItem(value: 'eliminar', child: Text('Eliminar')),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -115,7 +166,11 @@ class _FondoEliminar extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      color: scheme.errorContainer,
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer,
+        borderRadius: BorderRadius.circular(16),
+      ),
       alignment: alignment,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Icon(Icons.delete_outline, color: scheme.onErrorContainer),
