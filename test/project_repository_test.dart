@@ -63,6 +63,47 @@ void main() {
     expect(s.nextTask?.title, 'C');
   });
 
+  test('la próxima acción sale de Ahora antes que de una En curso en Siguiente', () async {
+    final enCurso = await projects.addTask(projectId, 'En curso en Siguiente');
+    await tasks.changeStatus(enCurso, TaskStatus.inProgress);
+    await projects.addTask(projectId, 'Después', horizon: TaskHorizon.later);
+    await projects.addTask(projectId, 'Ahora', horizon: TaskHorizon.now);
+
+    final s = (await projects.watchSummary(projectId).first)!;
+    expect(s.nextTask?.title, 'Ahora');
+  });
+
+  test('cambiar horizonte y tamaño marca la tarea dirty', () async {
+    final id = await projects.addTask(projectId, 'A');
+    await (db.update(db.tasks)..where((t) => t.id.equals(id)))
+        .write(const TasksCompanion(dirty: Value(false)));
+    final tarea = (await tasks.watchById(id).first)!;
+
+    await projects.moveTo(tarea, TaskHorizon.now);
+    await projects.resize(tarea, TaskSize.quick);
+
+    final row = (await tasks.watchById(id).first)!;
+    expect(row.horizon, 'now');
+    expect(row.size, 'quick');
+    expect(row.dirty, isTrue);
+  });
+
+  test('cabeEnElTiempo: sin límite cabe todo; sin estimar no cabe en un límite', () {
+    expect(cabeEnElTiempo(null, null), isTrue);
+    expect(cabeEnElTiempo(TaskSize.long, null), isTrue);
+    expect(cabeEnElTiempo(null, TaskSize.hour), isFalse);
+    expect(cabeEnElTiempo(TaskSize.quick, TaskSize.quick), isTrue);
+    expect(cabeEnElTiempo(TaskSize.hour, TaskSize.quick), isFalse);
+    expect(cabeEnElTiempo(TaskSize.quick, TaskSize.hour), isTrue);
+    expect(cabeEnElTiempo(TaskSize.long, TaskSize.hour), isFalse);
+  });
+
+  test('un horizonte desconocido o null se lee como Siguiente', () {
+    expect((null as String?).toTaskHorizon(), TaskHorizon.next);
+    expect('algo-raro'.toTaskHorizon(), TaskHorizon.next);
+    expect('now'.toTaskHorizon(), TaskHorizon.now);
+  });
+
   test('un proyecto sin pendientes no tiene próxima acción', () async {
     final s = (await projects.watchSummary(projectId).first)!;
     expect(s.total, 0);

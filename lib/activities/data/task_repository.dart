@@ -13,6 +13,7 @@ class TaskRepository {
     String? description,
     TaskPriority priority = TaskPriority.none,
     DateTime? dueAt,
+    TaskHorizon? horizon,
   }) async {
     final id = const Uuid().v4();
     await _db
@@ -24,6 +25,7 @@ class TaskRepository {
             description: Value(description),
             priority: Value(priority.name),
             dueAt: Value(dueAt),
+            horizon: Value(horizon?.name),
           ),
         );
     return id;
@@ -38,6 +40,7 @@ class TaskRepository {
     String? description,
     TaskPriority priority = TaskPriority.none,
     DateTime? dueAt,
+    TaskHorizon? horizon,
     String linkType = partOfLinkType,
   }) {
     return _db.transaction(() async {
@@ -46,6 +49,7 @@ class TaskRepository {
         description: description,
         priority: priority,
         dueAt: dueAt,
+        horizon: horizon,
       );
       await linkToEntity(taskId, entityId, linkType);
       return taskId;
@@ -143,6 +147,26 @@ class TaskRepository {
     return (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
       TasksCompanion(
         priority: Value(priority.name),
+        updatedAt: Value(DateTime.now()),
+        dirty: const Value(true),
+      ),
+    );
+  }
+
+  Future<void> changeHorizon(String id, TaskHorizon horizon) {
+    return (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
+      TasksCompanion(
+        horizon: Value(horizon.name),
+        updatedAt: Value(DateTime.now()),
+        dirty: const Value(true),
+      ),
+    );
+  }
+
+  Future<void> changeSize(String id, TaskSize? size) {
+    return (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
+      TasksCompanion(
+        size: Value(size?.name),
         updatedAt: Value(DateTime.now()),
         dirty: const Value(true),
       ),

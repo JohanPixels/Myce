@@ -138,6 +138,8 @@ create table if not exists public.tasks (
   status text not null default 'pending',
   priority text not null default 'none',
   due_at timestamptz,
+  horizon text,
+  size text,
   completed_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -207,3 +209,8 @@ alter table public.entity_tags add column if not exists deleted_at timestamptz;
 -- Idempotente — correr en un proyecto de Supabase que ya tenía la tabla.
 alter table public.projects add column if not exists emoji text;
 alter table public.projects add column if not exists color text;
+
+-- Migración incremental (schemaVersion local 5→6): Ahora/Siguiente/Después y
+-- tamaño de tarea. Idempotente.
+alter table public.tasks add column if not exists horizon text;
+alter table public.tasks add column if not exists size text;

@@ -11,6 +11,11 @@ class Tasks extends Table {
   TextColumn get status => text().withDefault(const Constant('pending'))();
   TextColumn get priority => text().withDefault(const Constant('none'))();
   DateTimeColumn get dueAt => dateTime().nullable()();
+  // Planificación sin fechas (el usuario no tiene horario fijo): cuándo toca
+  // (`TaskHorizon.name`, null = siguiente) y cuánto tiempo pide
+  // (`TaskSize.name`, null = sin estimar). Ver task_enums.dart.
+  TextColumn get horizon => text().nullable()();
+  TextColumn get size => text().nullable()();
   DateTimeColumn get completedAt => dateTime().nullable()();
   DateTimeColumn get createdAt =>
       dateTime().withDefault(currentDateAndTime)();

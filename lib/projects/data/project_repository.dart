@@ -32,7 +32,8 @@ class ProjectSummary {
   final int done;
   final int total;
 
-  /// La tarea "En curso" más vieja; si no hay, la pendiente más vieja.
+  /// La primera tarea abierta por orden de horizonte (Ahora → Siguiente →
+  /// Después), y dentro de cada uno primero la que está En curso.
   /// `null` = el proyecto no tiene próxima acción.
   final TaskRow? nextTask;
 }
@@ -134,18 +135,21 @@ class ProjectRepository {
       final tareas = (tareasPorProyecto[entity.id] ?? const <TaskRow>[])
           .where((t) => t.status != TaskStatus.cancelled.name)
           .toList();
-      final enCurso = tareas.where(
-        (t) => t.status == TaskStatus.inProgress.name,
-      );
-      final pendientes = tareas.where(
-        (t) => t.status == TaskStatus.pending.name,
-      );
+      final abiertas =
+          tareas
+              .where(
+                (t) =>
+                    t.status == TaskStatus.pending.name ||
+                    t.status == TaskStatus.inProgress.name,
+              )
+              .toList()
+            ..sort(compararPorPlan);
       return ProjectSummary(
         entity: entity,
         project: r.readTableOrNull(_db.projects),
         done: tareas.where((t) => t.status == TaskStatus.completed.name).length,
         total: tareas.length,
-        nextTask: enCurso.firstOrNull ?? pendientes.firstOrNull,
+        nextTask: abiertas.firstOrNull,
       );
     }).toList();
   }
@@ -210,8 +214,11 @@ class ProjectRepository {
     ];
   }
 
-  Future<String> addTask(String projectId, String title) =>
-      _tasks.createLinkedTo(projectId, title: title);
+  Future<String> addTask(
+    String projectId,
+    String title, {
+    TaskHorizon horizon = TaskHorizon.next,
+  }) => _tasks.createLinkedTo(projectId, title: title, horizon: horizon);
 
   Future<String> addRequirement(String projectId, String title) => _tasks
       .createLinkedTo(projectId, title: title, linkType: requirementLinkType);
@@ -262,13 +269,11 @@ class ProjectRepository {
         : TaskStatus.completed,
   );
 
-  /// En curso ↔ pendiente.
-  Future<void> toggleInProgress(TaskRow task) => _tasks.changeStatus(
-    task.id,
-    task.status == TaskStatus.inProgress.name
-        ? TaskStatus.pending
-        : TaskStatus.inProgress,
-  );
+  Future<void> moveTo(TaskRow task, TaskHorizon horizon) =>
+      _tasks.changeHorizon(task.id, horizon);
+
+  Future<void> resize(TaskRow task, TaskSize? size) =>
+      _tasks.changeSize(task.id, size);
 
   Future<void> updateAppearance(
     String projectId, {
@@ -288,4 +293,17 @@ class ProjectRepository {
           ),
         );
   }
+}
+
+/// Orden de "qué hago primero": horizonte (Ahora → Siguiente → Después),
+/// luego En curso antes que pendiente, luego la más vieja.
+int compararPorPlan(TaskRow a, TaskRow b) {
+  final h = a.horizon.toTaskHorizon().index.compareTo(
+    b.horizon.toTaskHorizon().index,
+  );
+  if (h != 0) return h;
+  final enCursoA = a.status == TaskStatus.inProgress.name ? 0 : 1;
+  final enCursoB = b.status == TaskStatus.inProgress.name ? 0 : 1;
+  if (enCursoA != enCursoB) return enCursoA.compareTo(enCursoB);
+  return a.createdAt.compareTo(b.createdAt);
 }

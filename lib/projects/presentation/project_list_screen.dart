@@ -37,6 +37,15 @@ class _ProjectListScreenState extends ConsumerState<ProjectListScreen> {
         final visibles = todos
             .where((s) => s.entity.status == _filtro.name)
             .toList();
+        // La primera tarea en Ahora de un proyecto activo (watchSummaries
+        // viene ordenado por actividad reciente).
+        final proximoRato = todos
+            .where(
+              (s) =>
+                  s.entity.status == EntityStatus.active.name &&
+                  s.nextTask?.horizon.toTaskHorizon() == TaskHorizon.now,
+            )
+            .firstOrNull;
 
         return Column(
           children: [
@@ -74,10 +83,17 @@ class _ProjectListScreenState extends ConsumerState<ProjectListScreen> {
                         spacing.md,
                         96, // aire para el FAB del shell
                       ),
-                      itemCount: visibles.length,
+                      itemCount: visibles.length + 1,
                       separatorBuilder: (_, _) => SizedBox(height: spacing.sm),
-                      itemBuilder: (context, i) =>
-                          _ProjectCard(summary: visibles[i]),
+                      itemBuilder: (context, i) {
+                        if (i == 0) {
+                          return proximoRato != null &&
+                                  _filtro == EntityStatus.active
+                              ? _ProximoRatoCard(summary: proximoRato)
+                              : const SizedBox.shrink();
+                        }
+                        return _ProjectCard(summary: visibles[i - 1]);
+                      },
                     ),
             ),
           ],
@@ -234,7 +250,8 @@ class _ProximaAccion extends StatelessWidget {
       );
     }
 
-    final enCurso = tarea.status == TaskStatus.inProgress.name;
+    final horizon = tarea.horizon.toTaskHorizon();
+    final enAhora = horizon == TaskHorizon.now;
     return Row(
       children: [
         Container(
@@ -242,12 +259,12 @@ class _ProximaAccion extends StatelessWidget {
           height: 8,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: enCurso ? atencion : theme.colorScheme.outline,
+            color: enAhora ? atencion : theme.colorScheme.outline,
           ),
         ),
         const SizedBox(width: 8),
         Text(
-          enCurso ? 'En curso' : 'Siguiente',
+          horizon.label,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -262,6 +279,82 @@ class _ProximaAccion extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// "Para tu próximo rato": una sola tarea concreta para no tener que pensar
+/// al abrir la app. Toca → abre la tarea.
+class _ProximoRatoCard extends StatelessWidget {
+  const _ProximoRatoCard({required this.summary});
+
+  final ProjectSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final atencion = context.octoColors.enCurso;
+    final tarea = summary.nextTask!;
+    final size = tarea.size.toTaskSize();
+
+    return Card(
+      margin: EdgeInsets.zero,
+      color: atencion.withValues(alpha: 0.10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: atencion.withValues(alpha: 0.45)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => pushTaskDetail(context, tarea.id),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'PARA TU PRÓXIMO RATO',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: atencion,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                tarea.title,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  ProjectAvatar(
+                    title: summary.entity.title,
+                    emoji: summary.project?.emoji,
+                    colorKey: summary.project?.color,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      [
+                        summary.entity.title,
+                        if (size != null) size.label,
+                      ].join(' · '),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

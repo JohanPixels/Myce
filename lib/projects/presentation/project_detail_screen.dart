@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../activities/domain/task_enums.dart';
+import '../../activities/presentation/task_plan_sheet.dart';
 import '../../core/database/app_database.dart';
 import '../../core/navigation/navigation_helpers.dart';
 import '../../core/theme/app_theme.dart';
@@ -307,11 +308,13 @@ class _TituloSeccion extends StatelessWidget {
     required this.texto,
     required this.cantidad,
     this.color,
+    this.pista,
   });
 
   final String texto;
   final int cantidad;
   final Color? color;
+  final String? pista;
 
   @override
   Widget build(BuildContext context) {
@@ -341,64 +344,174 @@ class _TituloSeccion extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
+          if (pista != null) ...[
+            const Spacer(),
+            Text(
+              pista!,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-class _TareasTab extends ConsumerWidget {
+class _TareasTab extends ConsumerStatefulWidget {
   const _TareasTab({required this.projectId});
 
   final String projectId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_TareasTab> createState() => _TareasTabState();
+}
+
+class _TareasTabState extends ConsumerState<_TareasTab> {
+  /// Tiempo disponible ("tengo…"); null = sin límite.
+  TaskSize? _tengo;
+
+  @override
+  Widget build(BuildContext context) {
     final repo = ref.watch(projectRepositoryProvider);
+    final theme = Theme.of(context);
     final atencion = context.octoColors.enCurso;
 
     return StreamBuilder<List<TaskRow>>(
-      stream: repo.watchTasks(projectId),
+      stream: repo.watchTasks(widget.projectId),
       builder: (context, snapshot) {
         final tareas = snapshot.data ?? const <TaskRow>[];
-        final enCurso = tareas
-            .where((t) => t.status == TaskStatus.inProgress.name)
+        final abiertas =
+            tareas
+                .where(
+                  (t) =>
+                      t.status == TaskStatus.pending.name ||
+                      t.status == TaskStatus.inProgress.name,
+                )
+                .toList()
+              ..sort(compararPorPlan);
+        final visibles = abiertas
+            .where((t) => cabeEnElTiempo(t.size.toTaskSize(), _tengo))
             .toList();
-        final pendientes = tareas
-            .where((t) => t.status == TaskStatus.pending.name)
-            .toList();
+        final ocultasSinEstimar = abiertas
+            .where((t) => _tengo != null && t.size == null)
+            .length;
+        final enAhora = abiertas
+            .where((t) => t.horizon.toTaskHorizon() == TaskHorizon.now)
+            .length;
         final hechas = tareas
             .where((t) => t.status == TaskStatus.completed.name)
             .toList();
+
+        List<TaskRow> de(TaskHorizon h) =>
+            visibles.where((t) => t.horizon.toTaskHorizon() == h).toList();
+
+        Widget seccion(TaskHorizon h, Color? color, String vacio) {
+          final items = de(h);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _TituloSeccion(
+                texto: h.label,
+                cantidad: items.length,
+                color: color,
+                pista: h == TaskHorizon.now ? 'máx. $maxTareasAhora' : null,
+              ),
+              if (items.isEmpty)
+                _Vacio(
+                  texto: _tengo == null ? vacio : 'Nada que quepa en ese tiempo.',
+                )
+              else
+                for (final t in items)
+                  _TareaTile(
+                    tarea: t,
+                    onPlan: () => mostrarPlanTareaSheet(
+                      context,
+                      ref,
+                      t,
+                      tareasEnAhora:
+                          enAhora -
+                          (t.horizon.toTaskHorizon() == TaskHorizon.now
+                              ? 1
+                              : 0),
+                    ),
+                  ),
+            ],
+          );
+        }
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
           children: [
             _CampoRapido(
               hint: 'Nueva tarea…',
-              onSubmit: (texto) => repo.addTask(projectId, texto),
+              onSubmit: (texto) => repo.addTask(widget.projectId, texto),
             ),
-            if (enCurso.isNotEmpty) ...[
-              _TituloSeccion(
-                texto: 'En curso',
-                cantidad: enCurso.length,
-                color: atencion,
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Text(
+                  'Tengo',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Wrap(
+                    spacing: 6,
+                    children: [
+                      for (final (valor, texto) in [
+                        (TaskSize.quick, '15 min'),
+                        (TaskSize.hour, '1 hora'),
+                        (null, 'Sin límite'),
+                      ])
+                        ChoiceChip(
+                          label: Text(texto),
+                          selected: _tengo == valor,
+                          onSelected: (_) => setState(() => _tengo = valor),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (ocultasSinEstimar > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  '$ocultasSinEstimar sin tiempo estimado no se muestran — '
+                  'toca ⋯ en una tarea para estimarla.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
-              for (final t in enCurso) _TareaTile(tarea: t),
-            ],
-            _TituloSeccion(texto: 'Pendientes', cantidad: pendientes.length),
-            if (pendientes.isEmpty)
-              const _Vacio(texto: 'Nada pendiente. Anota la próxima acción.')
-            else
-              for (final t in pendientes) _TareaTile(tarea: t),
+            seccion(
+              TaskHorizon.now,
+              atencion,
+              'Elige 1 a $maxTareasAhora tareas para tu próximo rato (⋯ → Ahora).',
+            ),
+            seccion(
+              TaskHorizon.next,
+              theme.colorScheme.primary,
+              'Nada pendiente. Anota la próxima acción.',
+            ),
+            seccion(
+              TaskHorizon.later,
+              theme.colorScheme.outline,
+              'Nada para después.',
+            ),
             if (hechas.isNotEmpty)
               Theme(
-                data: Theme.of(context)
-                    .copyWith(dividerColor: Colors.transparent),
+                data: theme.copyWith(dividerColor: Colors.transparent),
                 child: ExpansionTile(
                   tilePadding: EdgeInsets.zero,
                   title: Text('Hechas · ${hechas.length}'),
-                  children: [for (final t in hechas) _TareaTile(tarea: t)],
+                  children: [
+                    for (final t in hechas) _TareaTile(tarea: t, onPlan: null),
+                  ],
                 ),
               ),
           ],
@@ -409,9 +522,12 @@ class _TareasTab extends ConsumerWidget {
 }
 
 class _TareaTile extends ConsumerWidget {
-  const _TareaTile({required this.tarea});
+  const _TareaTile({required this.tarea, required this.onPlan});
 
   final TaskRow tarea;
+
+  /// Abre el sheet de Ahora/Siguiente/Después + tamaño; null en las hechas.
+  final VoidCallback? onPlan;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -420,12 +536,14 @@ class _TareaTile extends ConsumerWidget {
     final atencion = context.octoColors.enCurso;
     final hecha = tarea.status == TaskStatus.completed.name;
     final enCurso = tarea.status == TaskStatus.inProgress.name;
+    final enAhora = !hecha && tarea.horizon.toTaskHorizon() == TaskHorizon.now;
+    final size = tarea.size.toTaskSize();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: enCurso
+        side: enAhora
             ? BorderSide(color: atencion.withValues(alpha: 0.5))
             : BorderSide.none,
       ),
@@ -444,23 +562,55 @@ class _TareaTile extends ConsumerWidget {
                 onChanged: (_) => repo.toggleDone(tarea),
               ),
               Expanded(
-                child: Text(
-                  tarea.title,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    decoration: hecha ? TextDecoration.lineThrough : null,
-                    color: hecha ? theme.colorScheme.onSurfaceVariant : null,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tarea.title,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        decoration: hecha ? TextDecoration.lineThrough : null,
+                        color: hecha
+                            ? theme.colorScheme.onSurfaceVariant
+                            : null,
+                      ),
+                    ),
+                    if (enCurso)
+                      Text(
+                        'En curso',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: atencion,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              if (!hecha)
-                IconButton(
-                  icon: Icon(
-                    enCurso ? Icons.bolt : Icons.bolt_outlined,
-                    color: enCurso ? atencion : null,
+              if (size != null && !hecha)
+                Container(
+                  margin: const EdgeInsets.only(left: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
                   ),
-                  tooltip: enCurso ? 'Quitar de en curso' : 'Empezar ahora',
-                  onPressed: () => repo.toggleInProgress(tarea),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    size.label,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
+              if (onPlan != null)
+                IconButton(
+                  icon: const Icon(Icons.more_horiz),
+                  tooltip: 'Cuándo y cuánto tiempo',
+                  onPressed: onPlan,
+                )
+              else
+                const SizedBox(width: 12),
             ],
           ),
         ),

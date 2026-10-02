@@ -3383,6 +3383,26 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _horizonMeta = const VerificationMeta(
+    'horizon',
+  );
+  @override
+  late final GeneratedColumn<String> horizon = GeneratedColumn<String>(
+    'horizon',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sizeMeta = const VerificationMeta('size');
+  @override
+  late final GeneratedColumn<String> size = GeneratedColumn<String>(
+    'size',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _completedAtMeta = const VerificationMeta(
     'completedAt',
   );
@@ -3450,6 +3470,8 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
     status,
     priority,
     dueAt,
+    horizon,
+    size,
     completedAt,
     createdAt,
     updatedAt,
@@ -3504,6 +3526,18 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
       context.handle(
         _dueAtMeta,
         dueAt.isAcceptableOrUnknown(data['due_at']!, _dueAtMeta),
+      );
+    }
+    if (data.containsKey('horizon')) {
+      context.handle(
+        _horizonMeta,
+        horizon.isAcceptableOrUnknown(data['horizon']!, _horizonMeta),
+      );
+    }
+    if (data.containsKey('size')) {
+      context.handle(
+        _sizeMeta,
+        size.isAcceptableOrUnknown(data['size']!, _sizeMeta),
       );
     }
     if (data.containsKey('completed_at')) {
@@ -3572,6 +3606,14 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}due_at'],
       ),
+      horizon: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}horizon'],
+      ),
+      size: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}size'],
+      ),
       completedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}completed_at'],
@@ -3608,6 +3650,8 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
   final String status;
   final String priority;
   final DateTime? dueAt;
+  final String? horizon;
+  final String? size;
   final DateTime? completedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -3620,6 +3664,8 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     required this.status,
     required this.priority,
     this.dueAt,
+    this.horizon,
+    this.size,
     this.completedAt,
     required this.createdAt,
     required this.updatedAt,
@@ -3638,6 +3684,12 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     map['priority'] = Variable<String>(priority);
     if (!nullToAbsent || dueAt != null) {
       map['due_at'] = Variable<DateTime>(dueAt);
+    }
+    if (!nullToAbsent || horizon != null) {
+      map['horizon'] = Variable<String>(horizon);
+    }
+    if (!nullToAbsent || size != null) {
+      map['size'] = Variable<String>(size);
     }
     if (!nullToAbsent || completedAt != null) {
       map['completed_at'] = Variable<DateTime>(completedAt);
@@ -3663,6 +3715,10 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       dueAt: dueAt == null && nullToAbsent
           ? const Value.absent()
           : Value(dueAt),
+      horizon: horizon == null && nullToAbsent
+          ? const Value.absent()
+          : Value(horizon),
+      size: size == null && nullToAbsent ? const Value.absent() : Value(size),
       completedAt: completedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(completedAt),
@@ -3687,6 +3743,8 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       status: serializer.fromJson<String>(json['status']),
       priority: serializer.fromJson<String>(json['priority']),
       dueAt: serializer.fromJson<DateTime?>(json['dueAt']),
+      horizon: serializer.fromJson<String?>(json['horizon']),
+      size: serializer.fromJson<String?>(json['size']),
       completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -3704,6 +3762,8 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       'status': serializer.toJson<String>(status),
       'priority': serializer.toJson<String>(priority),
       'dueAt': serializer.toJson<DateTime?>(dueAt),
+      'horizon': serializer.toJson<String?>(horizon),
+      'size': serializer.toJson<String?>(size),
       'completedAt': serializer.toJson<DateTime?>(completedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -3719,6 +3779,8 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     String? status,
     String? priority,
     Value<DateTime?> dueAt = const Value.absent(),
+    Value<String?> horizon = const Value.absent(),
+    Value<String?> size = const Value.absent(),
     Value<DateTime?> completedAt = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -3731,6 +3793,8 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     status: status ?? this.status,
     priority: priority ?? this.priority,
     dueAt: dueAt.present ? dueAt.value : this.dueAt,
+    horizon: horizon.present ? horizon.value : this.horizon,
+    size: size.present ? size.value : this.size,
     completedAt: completedAt.present ? completedAt.value : this.completedAt,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -3747,6 +3811,8 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       status: data.status.present ? data.status.value : this.status,
       priority: data.priority.present ? data.priority.value : this.priority,
       dueAt: data.dueAt.present ? data.dueAt.value : this.dueAt,
+      horizon: data.horizon.present ? data.horizon.value : this.horizon,
+      size: data.size.present ? data.size.value : this.size,
       completedAt: data.completedAt.present
           ? data.completedAt.value
           : this.completedAt,
@@ -3766,6 +3832,8 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
           ..write('status: $status, ')
           ..write('priority: $priority, ')
           ..write('dueAt: $dueAt, ')
+          ..write('horizon: $horizon, ')
+          ..write('size: $size, ')
           ..write('completedAt: $completedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -3783,6 +3851,8 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     status,
     priority,
     dueAt,
+    horizon,
+    size,
     completedAt,
     createdAt,
     updatedAt,
@@ -3799,6 +3869,8 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
           other.status == this.status &&
           other.priority == this.priority &&
           other.dueAt == this.dueAt &&
+          other.horizon == this.horizon &&
+          other.size == this.size &&
           other.completedAt == this.completedAt &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
@@ -3813,6 +3885,8 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
   final Value<String> status;
   final Value<String> priority;
   final Value<DateTime?> dueAt;
+  final Value<String?> horizon;
+  final Value<String?> size;
   final Value<DateTime?> completedAt;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
@@ -3826,6 +3900,8 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     this.status = const Value.absent(),
     this.priority = const Value.absent(),
     this.dueAt = const Value.absent(),
+    this.horizon = const Value.absent(),
+    this.size = const Value.absent(),
     this.completedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -3840,6 +3916,8 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     this.status = const Value.absent(),
     this.priority = const Value.absent(),
     this.dueAt = const Value.absent(),
+    this.horizon = const Value.absent(),
+    this.size = const Value.absent(),
     this.completedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -3854,6 +3932,8 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     Expression<String>? status,
     Expression<String>? priority,
     Expression<DateTime>? dueAt,
+    Expression<String>? horizon,
+    Expression<String>? size,
     Expression<DateTime>? completedAt,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -3868,6 +3948,8 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
       if (status != null) 'status': status,
       if (priority != null) 'priority': priority,
       if (dueAt != null) 'due_at': dueAt,
+      if (horizon != null) 'horizon': horizon,
+      if (size != null) 'size': size,
       if (completedAt != null) 'completed_at': completedAt,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -3884,6 +3966,8 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     Value<String>? status,
     Value<String>? priority,
     Value<DateTime?>? dueAt,
+    Value<String?>? horizon,
+    Value<String?>? size,
     Value<DateTime?>? completedAt,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
@@ -3898,6 +3982,8 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
       status: status ?? this.status,
       priority: priority ?? this.priority,
       dueAt: dueAt ?? this.dueAt,
+      horizon: horizon ?? this.horizon,
+      size: size ?? this.size,
       completedAt: completedAt ?? this.completedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -3927,6 +4013,12 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     }
     if (dueAt.present) {
       map['due_at'] = Variable<DateTime>(dueAt.value);
+    }
+    if (horizon.present) {
+      map['horizon'] = Variable<String>(horizon.value);
+    }
+    if (size.present) {
+      map['size'] = Variable<String>(size.value);
     }
     if (completedAt.present) {
       map['completed_at'] = Variable<DateTime>(completedAt.value);
@@ -3958,6 +4050,8 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
           ..write('status: $status, ')
           ..write('priority: $priority, ')
           ..write('dueAt: $dueAt, ')
+          ..write('horizon: $horizon, ')
+          ..write('size: $size, ')
           ..write('completedAt: $completedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -9689,6 +9783,8 @@ typedef $$TasksTableCreateCompanionBuilder = TasksCompanion Function({
   Value<String> status,
   Value<String> priority,
   Value<DateTime?> dueAt,
+  Value<String?> horizon,
+  Value<String?> size,
   Value<DateTime?> completedAt,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
@@ -9703,6 +9799,8 @@ typedef $$TasksTableUpdateCompanionBuilder = TasksCompanion Function({
   Value<String> status,
   Value<String> priority,
   Value<DateTime?> dueAt,
+  Value<String?> horizon,
+  Value<String?> size,
   Value<DateTime?> completedAt,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
@@ -9746,6 +9844,16 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
 
   ColumnFilters<DateTime> get dueAt => $composableBuilder(
     column: $table.dueAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get horizon => $composableBuilder(
+    column: $table.horizon,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get size => $composableBuilder(
+    column: $table.size,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9814,6 +9922,16 @@ class $$TasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get horizon => $composableBuilder(
+    column: $table.horizon,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get size => $composableBuilder(
+    column: $table.size,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get completedAt => $composableBuilder(
     column: $table.completedAt,
     builder: (column) => ColumnOrderings(column),
@@ -9869,6 +9987,12 @@ class $$TasksTableAnnotationComposer
   GeneratedColumn<DateTime> get dueAt =>
       $composableBuilder(column: $table.dueAt, builder: (column) => column);
 
+  GeneratedColumn<String> get horizon =>
+      $composableBuilder(column: $table.horizon, builder: (column) => column);
+
+  GeneratedColumn<String> get size =>
+      $composableBuilder(column: $table.size, builder: (column) => column);
+
   GeneratedColumn<DateTime> get completedAt => $composableBuilder(
     column: $table.completedAt,
     builder: (column) => column,
@@ -9921,6 +10045,8 @@ class $$TasksTableTableManager
                 Value<String> status = const Value.absent(),
                 Value<String> priority = const Value.absent(),
                 Value<DateTime?> dueAt = const Value.absent(),
+                Value<String?> horizon = const Value.absent(),
+                Value<String?> size = const Value.absent(),
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -9934,6 +10060,8 @@ class $$TasksTableTableManager
                 status: status,
                 priority: priority,
                 dueAt: dueAt,
+                horizon: horizon,
+                size: size,
                 completedAt: completedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -9949,6 +10077,8 @@ class $$TasksTableTableManager
                 Value<String> status = const Value.absent(),
                 Value<String> priority = const Value.absent(),
                 Value<DateTime?> dueAt = const Value.absent(),
+                Value<String?> horizon = const Value.absent(),
+                Value<String?> size = const Value.absent(),
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -9962,6 +10092,8 @@ class $$TasksTableTableManager
                 status: status,
                 priority: priority,
                 dueAt: dueAt,
+                horizon: horizon,
+                size: size,
                 completedAt: completedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,

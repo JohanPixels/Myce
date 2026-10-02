@@ -96,6 +96,40 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               ),
 
               const SizedBox(height: 20),
+              Text('¿Cuándo?', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: TaskHorizon.values.map((h) {
+                  return ChoiceChip(
+                    label: Text(h.label),
+                    selected: task.horizon.toTaskHorizon() == h,
+                    onSelected: (_) => taskRepo.changeHorizon(task.id, h),
+                  );
+                }).toList(),
+              ),
+
+              const SizedBox(height: 20),
+              Text(
+                '¿Cuánto tiempo pide?',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: TaskSize.values.map((s) {
+                  final elegido = task.size.toTaskSize() == s;
+                  return ChoiceChip(
+                    label: Text(s.label),
+                    selected: elegido,
+                    // tocar el ya elegido lo deja sin estimar
+                    onSelected: (_) =>
+                        taskRepo.changeSize(task.id, elegido ? null : s),
+                  );
+                }).toList(),
+              ),
+
+              const SizedBox(height: 20),
               Text('Prioridad', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Wrap(

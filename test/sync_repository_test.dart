@@ -8,6 +8,7 @@ import 'package:octo_dash/features/sync/sync_repository.dart';
 import 'package:octo_dash/relations/data/relation_repository.dart';
 import 'package:octo_dash/tags/data/tag_repository.dart';
 import 'package:octo_dash/activities/data/task_repository.dart';
+import 'package:octo_dash/activities/domain/task_enums.dart';
 
 /// Fake sin librería de mocking (el proyecto no usa mockito/mocktail).
 class FakeSyncClient implements SyncClient {
@@ -122,6 +123,19 @@ void main() {
     final projectUpsert = fake.upserts.firstWhere((e) => e.key == 'projects').value;
     expect(projectUpsert['entity_id'], entityId);
     expect(projectUpsert['user_id'], 'u1');
+  });
+
+  test('pushea horizonte y tamaño de una Task', () async {
+    final taskRepo = TaskRepository(db);
+    final id = await taskRepo.create(title: 'Algo', horizon: TaskHorizon.now);
+    await taskRepo.changeSize(id, TaskSize.hour);
+
+    final fake = FakeSyncClient();
+    await pushDirtyData(db, userId: 'u1', client: fake);
+
+    final upsert = fake.upserts.firstWhere((e) => e.key == 'tasks').value;
+    expect(upsert['horizon'], 'now');
+    expect(upsert['size'], 'hour');
   });
 
   test('pushea emoji y color de un Project', () async {

@@ -12,6 +12,18 @@ enum TaskStatus { pending, inProgress, completed, cancelled }
 
 enum TaskPriority { none, low, medium, high }
 
+/// Cuándo toca una tarea, sin fechas: el usuario no tiene horario fijo, así
+/// que planifica por orden y no por calendario. `null` en la base = [next].
+enum TaskHorizon { now, next, later }
+
+/// Cuánto tiempo pide una tarea — alimenta el filtro "tengo 15 min / 1 hora".
+/// `null` en la base = sin estimar.
+enum TaskSize { quick, hour, long }
+
+/// Máximo sugerido de tareas en "Ahora" — si hay más, ya no ayuda a decidir
+/// qué hacer primero. Es un aviso en la UI, no una restricción.
+const maxTareasAhora = 3;
+
 extension TaskStatusParsing on String {
   TaskStatus toTaskStatus() => TaskStatus.values.byName(this);
 }
@@ -36,4 +48,38 @@ extension TaskPriorityLabel on TaskPriority {
     TaskPriority.medium => 'Media',
     TaskPriority.high => 'Alta',
   };
+}
+
+extension TaskHorizonParsing on String? {
+  TaskHorizon toTaskHorizon() =>
+      TaskHorizon.values.asNameMap()[this] ?? TaskHorizon.next;
+}
+
+extension TaskSizeParsing on String? {
+  TaskSize? toTaskSize() => TaskSize.values.asNameMap()[this];
+}
+
+extension TaskHorizonLabel on TaskHorizon {
+  String get label => switch (this) {
+    TaskHorizon.now => 'Ahora',
+    TaskHorizon.next => 'Siguiente',
+    TaskHorizon.later => 'Después',
+  };
+}
+
+extension TaskSizeLabel on TaskSize {
+  String get label => switch (this) {
+    TaskSize.quick => '15 min',
+    TaskSize.hour => '1 h',
+    TaskSize.long => '+1 h',
+  };
+}
+
+/// ¿Cabe una tarea de tamaño [size] en el tiempo disponible [limite]?
+/// `limite == null` = sin límite (cabe todo). Una tarea sin estimar no
+/// cabe en ningún límite: no se sabe si alcanza.
+bool cabeEnElTiempo(TaskSize? size, TaskSize? limite) {
+  if (limite == null) return true;
+  if (size == null) return false;
+  return size.index <= limite.index;
 }
