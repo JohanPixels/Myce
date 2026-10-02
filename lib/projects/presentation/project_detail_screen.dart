@@ -10,6 +10,7 @@ import '../../core/theme/project_palette.dart';
 import '../../entities/domain/entity_type.dart';
 import '../data/project_repository.dart';
 import '../data/project_repository_provider.dart';
+import 'classify_capture_sheet.dart';
 import 'project_appearance_sheet.dart';
 import 'project_avatar.dart';
 
@@ -85,6 +86,12 @@ class ProjectDetailScreen extends ConsumerWidget {
                   child: _Cabecera(
                     summary: summary,
                     onTapAvatar: editarApariencia,
+                    onCapture: (texto) => repo.capture(projectId, texto),
+                    onClasificar: () => mostrarClasificarCapturasSheet(
+                      context,
+                      projectId: projectId,
+                      projectTitle: summary.entity.title,
+                    ),
                   ),
                 ),
                 SliverPersistentHeader(
@@ -121,10 +128,17 @@ class ProjectDetailScreen extends ConsumerWidget {
 }
 
 class _Cabecera extends StatelessWidget {
-  const _Cabecera({required this.summary, required this.onTapAvatar});
+  const _Cabecera({
+    required this.summary,
+    required this.onTapAvatar,
+    required this.onCapture,
+    required this.onClasificar,
+  });
 
   final ProjectSummary summary;
   final VoidCallback onTapAvatar;
+  final void Function(String texto) onCapture;
+  final VoidCallback onClasificar;
 
   @override
   Widget build(BuildContext context) {
@@ -218,7 +232,87 @@ class _Cabecera extends StatelessWidget {
               ),
             ],
           ),
+          SizedBox(height: spacing.md),
+          _CampoRapido(
+            hint: 'Anotar algo en ${entity.title}…',
+            onSubmit: onCapture,
+          ),
+          if (summary.unclassified > 0) ...[
+            SizedBox(height: spacing.sm + 2),
+            _SinClasificarBanner(
+              cantidad: summary.unclassified,
+              onTap: onClasificar,
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _SinClasificarBanner extends StatelessWidget {
+  const _SinClasificarBanner({required this.cantidad, required this.onTap});
+
+  final int cantidad;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final atencion = context.octoColors.enCurso;
+    return Material(
+      color: atencion.withValues(alpha: 0.10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: atencion.withValues(alpha: 0.45)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: atencion,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$cantidad',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Sin clasificar',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      'Toca para decidir qué es cada cosa',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: atencion),
+            ],
+          ),
+        ),
       ),
     );
   }

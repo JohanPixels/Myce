@@ -169,6 +169,7 @@ create table if not exists public.inbox_items (
   id uuid primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
   content text not null,
+  entity_id uuid references public.entities(id) on delete cascade,
   created_at timestamptz not null default now(),
   deleted_at timestamptz
 );
@@ -214,3 +215,8 @@ alter table public.projects add column if not exists color text;
 -- tamaño de tarea. Idempotente.
 alter table public.tasks add column if not exists horizon text;
 alter table public.tasks add column if not exists size text;
+
+-- Migración incremental (schemaVersion local 6→7): captura "sin clasificar"
+-- dentro de un proyecto. Idempotente.
+alter table public.inbox_items
+  add column if not exists entity_id uuid references public.entities(id) on delete cascade;

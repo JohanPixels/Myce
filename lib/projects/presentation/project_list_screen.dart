@@ -170,6 +170,27 @@ class _ProjectCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (summary.unclassified > 0)
+                    Tooltip(
+                      message: '${summary.unclassified} sin clasificar',
+                      child: Container(
+                        constraints: const BoxConstraints(minWidth: 26),
+                        height: 26,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: context.octoColors.enCurso,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${summary.unclassified}',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: Colors.black,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
               SizedBox(height: spacing.md - 4),

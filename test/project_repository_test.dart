@@ -6,6 +6,7 @@ import 'package:octo_dash/activities/domain/task_enums.dart';
 import 'package:octo_dash/core/database/app_database.dart';
 import 'package:octo_dash/entities/data/entity_repository.dart';
 import 'package:octo_dash/entities/domain/entity_type.dart';
+import 'package:octo_dash/inbox/data/inbox_repository.dart';
 import 'package:octo_dash/projects/data/project_repository.dart';
 import 'package:octo_dash/relations/data/relation_repository.dart';
 import 'package:octo_dash/tags/data/tag_repository.dart';
@@ -15,18 +16,22 @@ void main() {
   late EntityRepository entities;
   late TaskRepository tasks;
   late ProjectRepository projects;
+  late InboxRepository inbox;
   late String projectId;
 
   setUp(() async {
     db = AppDatabase.forTesting(NativeDatabase.memory());
     entities = EntityRepository(db);
     tasks = TaskRepository(db);
+    final tags = TagRepository(db);
+    inbox = InboxRepository(db, entities, tags, tasks);
     projects = ProjectRepository(
       db,
       entities,
       tasks,
       RelationRepository(db),
-      TagRepository(db),
+      tags,
+      inbox,
     );
     projectId = await entities.create(type: EntityType.project, title: 'Myce');
   });
@@ -160,5 +165,59 @@ void main() {
     expect(row.emoji, '🍄');
     expect(row.color, 'orange');
     expect(row.dirty, isTrue);
+  });
+
+  test('una captura del proyecto no aparece en el Inbox general y cuenta como sin clasificar', () async {
+    await inbox.capture('Captura general');
+    await projects.capture(projectId, 'Algo de Myce');
+
+    final general = await inbox.watchInbox().first;
+    final delProyecto = await projects.watchUnclassified(projectId).first;
+    final s = (await projects.watchSummary(projectId).first)!;
+
+    expect(general.map((i) => i.content), ['Captura general']);
+    expect(delProyecto.map((i) => i.content), ['Algo de Myce']);
+    expect(s.unclassified, 1);
+  });
+
+  test('clasificar una captura la convierte en lo elegido y la saca del proyecto', () async {
+    for (final texto in ['t', 'o', 'r', 'i', 'd']) {
+      await projects.capture(projectId, texto);
+    }
+    final items = await projects.watchUnclassified(projectId).first;
+    String idDe(String texto) => items.firstWhere((i) => i.content == texto).id;
+
+    await projects.classifyCapture(projectId, idDe('t'), ProjectCaptureKind.task);
+    await projects.classifyCapture(projectId, idDe('o'), ProjectCaptureKind.observation);
+    await projects.classifyCapture(projectId, idDe('r'), ProjectCaptureKind.requirement);
+    await projects.classifyCapture(projectId, idDe('i'), ProjectCaptureKind.idea);
+    await projects.discardCapture(idDe('d'));
+
+    expect(await projects.watchUnclassified(projectId).first, isEmpty);
+    expect((await projects.watchTasks(projectId).first).map((t) => t.title), ['t']);
+    expect((await projects.watchRequirements(projectId).first).map((t) => t.title), ['r']);
+    final obs = await projects.watchObservations(projectId).first;
+    expect(obs.map((o) => (o.note.title, o.isIdea)).toSet(), {('o', false), ('i', true)});
+    // procesadas = soft-delete + dirty, para que el sync propague
+    final filas = await db.select(db.inboxItems).get();
+    expect(filas.every((f) => f.deletedAt != null && f.dirty), isTrue);
+  });
+
+  test('una captura larga como tarea recorta el título y guarda el texto en la descripción', () async {
+    final largo = 'y' * 260;
+    await projects.capture(projectId, largo);
+    final item = (await projects.watchUnclassified(projectId).first).single;
+    await projects.classifyCapture(projectId, item.id, ProjectCaptureKind.task);
+
+    final tarea = (await projects.watchTasks(projectId).first).single;
+    expect(tarea.title.length, lessThanOrEqualTo(200));
+    expect(tarea.description, largo);
+  });
+
+  test('borrar el proyecto descarta sus capturas sin clasificar', () async {
+    await projects.capture(projectId, 'pendiente');
+    await entities.delete(projectId);
+    final filas = await db.select(db.inboxItems).get();
+    expect(filas.single.deletedAt, isNotNull);
   });
 }

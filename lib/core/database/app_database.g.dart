@@ -4609,6 +4609,20 @@ class $InboxItemsTable extends InboxItems
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _entityIdMeta = const VerificationMeta(
+    'entityId',
+  );
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+    'entity_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES entities (id)',
+    ),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -4649,6 +4663,7 @@ class $InboxItemsTable extends InboxItems
   List<GeneratedColumn> get $columns => [
     id,
     content,
+    entityId,
     createdAt,
     dirty,
     deletedAt,
@@ -4675,6 +4690,12 @@ class $InboxItemsTable extends InboxItems
       );
     } else if (isInserting) {
       context.missing(_contentMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(
+        _entityIdMeta,
+        entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta),
+      );
     }
     if (data.containsKey('created_at')) {
       context.handle(
@@ -4711,6 +4732,10 @@ class $InboxItemsTable extends InboxItems
         DriftSqlType.string,
         data['${effectivePrefix}content'],
       )!,
+      entityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_id'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -4735,12 +4760,14 @@ class $InboxItemsTable extends InboxItems
 class InboxItemRow extends DataClass implements Insertable<InboxItemRow> {
   final String id;
   final String content;
+  final String? entityId;
   final DateTime createdAt;
   final bool dirty;
   final DateTime? deletedAt;
   const InboxItemRow({
     required this.id,
     required this.content,
+    this.entityId,
     required this.createdAt,
     required this.dirty,
     this.deletedAt,
@@ -4750,6 +4777,9 @@ class InboxItemRow extends DataClass implements Insertable<InboxItemRow> {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['content'] = Variable<String>(content);
+    if (!nullToAbsent || entityId != null) {
+      map['entity_id'] = Variable<String>(entityId);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['dirty'] = Variable<bool>(dirty);
     if (!nullToAbsent || deletedAt != null) {
@@ -4762,6 +4792,9 @@ class InboxItemRow extends DataClass implements Insertable<InboxItemRow> {
     return InboxItemsCompanion(
       id: Value(id),
       content: Value(content),
+      entityId: entityId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(entityId),
       createdAt: Value(createdAt),
       dirty: Value(dirty),
       deletedAt: deletedAt == null && nullToAbsent
@@ -4778,6 +4811,7 @@ class InboxItemRow extends DataClass implements Insertable<InboxItemRow> {
     return InboxItemRow(
       id: serializer.fromJson<String>(json['id']),
       content: serializer.fromJson<String>(json['content']),
+      entityId: serializer.fromJson<String?>(json['entityId']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       dirty: serializer.fromJson<bool>(json['dirty']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
@@ -4789,6 +4823,7 @@ class InboxItemRow extends DataClass implements Insertable<InboxItemRow> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'content': serializer.toJson<String>(content),
+      'entityId': serializer.toJson<String?>(entityId),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'dirty': serializer.toJson<bool>(dirty),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
@@ -4798,12 +4833,14 @@ class InboxItemRow extends DataClass implements Insertable<InboxItemRow> {
   InboxItemRow copyWith({
     String? id,
     String? content,
+    Value<String?> entityId = const Value.absent(),
     DateTime? createdAt,
     bool? dirty,
     Value<DateTime?> deletedAt = const Value.absent(),
   }) => InboxItemRow(
     id: id ?? this.id,
     content: content ?? this.content,
+    entityId: entityId.present ? entityId.value : this.entityId,
     createdAt: createdAt ?? this.createdAt,
     dirty: dirty ?? this.dirty,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
@@ -4812,6 +4849,7 @@ class InboxItemRow extends DataClass implements Insertable<InboxItemRow> {
     return InboxItemRow(
       id: data.id.present ? data.id.value : this.id,
       content: data.content.present ? data.content.value : this.content,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       dirty: data.dirty.present ? data.dirty.value : this.dirty,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
@@ -4823,6 +4861,7 @@ class InboxItemRow extends DataClass implements Insertable<InboxItemRow> {
     return (StringBuffer('InboxItemRow(')
           ..write('id: $id, ')
           ..write('content: $content, ')
+          ..write('entityId: $entityId, ')
           ..write('createdAt: $createdAt, ')
           ..write('dirty: $dirty, ')
           ..write('deletedAt: $deletedAt')
@@ -4831,13 +4870,15 @@ class InboxItemRow extends DataClass implements Insertable<InboxItemRow> {
   }
 
   @override
-  int get hashCode => Object.hash(id, content, createdAt, dirty, deletedAt);
+  int get hashCode =>
+      Object.hash(id, content, entityId, createdAt, dirty, deletedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is InboxItemRow &&
           other.id == this.id &&
           other.content == this.content &&
+          other.entityId == this.entityId &&
           other.createdAt == this.createdAt &&
           other.dirty == this.dirty &&
           other.deletedAt == this.deletedAt);
@@ -4846,6 +4887,7 @@ class InboxItemRow extends DataClass implements Insertable<InboxItemRow> {
 class InboxItemsCompanion extends UpdateCompanion<InboxItemRow> {
   final Value<String> id;
   final Value<String> content;
+  final Value<String?> entityId;
   final Value<DateTime> createdAt;
   final Value<bool> dirty;
   final Value<DateTime?> deletedAt;
@@ -4853,6 +4895,7 @@ class InboxItemsCompanion extends UpdateCompanion<InboxItemRow> {
   const InboxItemsCompanion({
     this.id = const Value.absent(),
     this.content = const Value.absent(),
+    this.entityId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.dirty = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -4861,6 +4904,7 @@ class InboxItemsCompanion extends UpdateCompanion<InboxItemRow> {
   InboxItemsCompanion.insert({
     this.id = const Value.absent(),
     required String content,
+    this.entityId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.dirty = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -4869,6 +4913,7 @@ class InboxItemsCompanion extends UpdateCompanion<InboxItemRow> {
   static Insertable<InboxItemRow> custom({
     Expression<String>? id,
     Expression<String>? content,
+    Expression<String>? entityId,
     Expression<DateTime>? createdAt,
     Expression<bool>? dirty,
     Expression<DateTime>? deletedAt,
@@ -4877,6 +4922,7 @@ class InboxItemsCompanion extends UpdateCompanion<InboxItemRow> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (content != null) 'content': content,
+      if (entityId != null) 'entity_id': entityId,
       if (createdAt != null) 'created_at': createdAt,
       if (dirty != null) 'dirty': dirty,
       if (deletedAt != null) 'deleted_at': deletedAt,
@@ -4887,6 +4933,7 @@ class InboxItemsCompanion extends UpdateCompanion<InboxItemRow> {
   InboxItemsCompanion copyWith({
     Value<String>? id,
     Value<String>? content,
+    Value<String?>? entityId,
     Value<DateTime>? createdAt,
     Value<bool>? dirty,
     Value<DateTime?>? deletedAt,
@@ -4895,6 +4942,7 @@ class InboxItemsCompanion extends UpdateCompanion<InboxItemRow> {
     return InboxItemsCompanion(
       id: id ?? this.id,
       content: content ?? this.content,
+      entityId: entityId ?? this.entityId,
       createdAt: createdAt ?? this.createdAt,
       dirty: dirty ?? this.dirty,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -4910,6 +4958,9 @@ class InboxItemsCompanion extends UpdateCompanion<InboxItemRow> {
     }
     if (content.present) {
       map['content'] = Variable<String>(content.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
@@ -4931,6 +4982,7 @@ class InboxItemsCompanion extends UpdateCompanion<InboxItemRow> {
     return (StringBuffer('InboxItemsCompanion(')
           ..write('id: $id, ')
           ..write('content: $content, ')
+          ..write('entityId: $entityId, ')
           ..write('createdAt: $createdAt, ')
           ..write('dirty: $dirty, ')
           ..write('deletedAt: $deletedAt, ')
@@ -5898,6 +5950,24 @@ final class $$EntitiesTableReferences
     );
   }
 
+  static MultiTypedResultKey<$InboxItemsTable, List<InboxItemRow>>
+  _inboxItemsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.inboxItems,
+    aliasName: 'entities__id__inbox_items__entity_id',
+  );
+
+  $$InboxItemsTableProcessedTableManager get inboxItemsRefs {
+    final manager = $$InboxItemsTableTableManager(
+      $_db,
+      $_db.inboxItems,
+    ).filter((f) => f.entityId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_inboxItemsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<$EntityTagsTable, List<EntityTagRow>>
   _entityTagsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.entityTags,
@@ -6212,6 +6282,31 @@ class $$EntitiesTableFilterComposer
           }) => $$ActivityLinksTableFilterComposer(
             $db: $db,
             $table: $db.activityLinks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> inboxItemsRefs(
+    Expression<bool> Function($$InboxItemsTableFilterComposer f) f,
+  ) {
+    final $$InboxItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.inboxItems,
+      getReferencedColumn: (t) => t.entityId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$InboxItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.inboxItems,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -6590,6 +6685,31 @@ class $$EntitiesTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> inboxItemsRefs<T extends Object>(
+    Expression<T> Function($$InboxItemsTableAnnotationComposer a) f,
+  ) {
+    final $$InboxItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.inboxItems,
+      getReferencedColumn: (t) => t.entityId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$InboxItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.inboxItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> entityTagsRefs<T extends Object>(
     Expression<T> Function($$EntityTagsTableAnnotationComposer a) f,
   ) {
@@ -6640,6 +6760,7 @@ class $$EntitiesTableTableManager
             bool relationsAsSource,
             bool relationsAsTarget,
             bool activityLinksRefs,
+            bool inboxItemsRefs,
             bool entityTagsRefs,
           })
         > {
@@ -6722,6 +6843,7 @@ class $$EntitiesTableTableManager
                 relationsAsSource = false,
                 relationsAsTarget = false,
                 activityLinksRefs = false,
+                inboxItemsRefs = false,
                 entityTagsRefs = false,
               }) {
                 return PrefetchHooks(
@@ -6737,6 +6859,7 @@ class $$EntitiesTableTableManager
                     if (relationsAsSource) db.relations,
                     if (relationsAsTarget) db.relations,
                     if (activityLinksRefs) db.activityLinks,
+                    if (inboxItemsRefs) db.inboxItems,
                     if (entityTagsRefs) db.entityTags,
                   ],
                   addJoins: null,
@@ -6952,6 +7075,27 @@ class $$EntitiesTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (inboxItemsRefs)
+                        await $_getPrefetchedData<
+                          EntityRow,
+                          $EntitiesTable,
+                          InboxItemRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$EntitiesTableReferences
+                              ._inboxItemsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$EntitiesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).inboxItemsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.entityId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                       if (entityTagsRefs)
                         await $_getPrefetchedData<
                           EntityRow,
@@ -7004,6 +7148,7 @@ typedef $$EntitiesTableProcessedTableManager =
         bool relationsAsSource,
         bool relationsAsTarget,
         bool activityLinksRefs,
+        bool inboxItemsRefs,
         bool entityTagsRefs,
       })
     >;
@@ -10507,6 +10652,7 @@ typedef $$ActivityLinksTableProcessedTableManager =
 typedef $$InboxItemsTableCreateCompanionBuilder = InboxItemsCompanion Function({
   Value<String> id,
   required String content,
+  Value<String?> entityId,
   Value<DateTime> createdAt,
   Value<bool> dirty,
   Value<DateTime?> deletedAt,
@@ -10515,11 +10661,34 @@ typedef $$InboxItemsTableCreateCompanionBuilder = InboxItemsCompanion Function({
 typedef $$InboxItemsTableUpdateCompanionBuilder = InboxItemsCompanion Function({
   Value<String> id,
   Value<String> content,
+  Value<String?> entityId,
   Value<DateTime> createdAt,
   Value<bool> dirty,
   Value<DateTime?> deletedAt,
   Value<int> rowid,
 });
+
+final class $$InboxItemsTableReferences
+    extends BaseReferences<_$AppDatabase, $InboxItemsTable, InboxItemRow> {
+  $$InboxItemsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $EntitiesTable _entityIdTable(_$AppDatabase db) =>
+      db.entities.createAlias('inbox_items__entity_id__entities__id');
+
+  $$EntitiesTableProcessedTableManager? get entityId {
+    final $_column = $_itemColumn<String>('entity_id');
+    if ($_column == null) return null;
+    final manager = $$EntitiesTableTableManager(
+      $_db,
+      $_db.entities,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_entityIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
 
 class $$InboxItemsTableFilterComposer
     extends Composer<_$AppDatabase, $InboxItemsTable> {
@@ -10554,6 +10723,29 @@ class $$InboxItemsTableFilterComposer
     column: $table.deletedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$EntitiesTableFilterComposer get entityId {
+    final $$EntitiesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.entityId,
+      referencedTable: $db.entities,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$EntitiesTableFilterComposer(
+            $db: $db,
+            $table: $db.entities,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$InboxItemsTableOrderingComposer
@@ -10589,6 +10781,29 @@ class $$InboxItemsTableOrderingComposer
     column: $table.deletedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$EntitiesTableOrderingComposer get entityId {
+    final $$EntitiesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.entityId,
+      referencedTable: $db.entities,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$EntitiesTableOrderingComposer(
+            $db: $db,
+            $table: $db.entities,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$InboxItemsTableAnnotationComposer
@@ -10614,6 +10829,29 @@ class $$InboxItemsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get deletedAt =>
       $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  $$EntitiesTableAnnotationComposer get entityId {
+    final $$EntitiesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.entityId,
+      referencedTable: $db.entities,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$EntitiesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.entities,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$InboxItemsTableTableManager
@@ -10627,12 +10865,9 @@ class $$InboxItemsTableTableManager
           $$InboxItemsTableAnnotationComposer,
           $$InboxItemsTableCreateCompanionBuilder,
           $$InboxItemsTableUpdateCompanionBuilder,
-          (
-            InboxItemRow,
-            BaseReferences<_$AppDatabase, $InboxItemsTable, InboxItemRow>,
-          ),
+          (InboxItemRow, $$InboxItemsTableReferences),
           InboxItemRow,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool entityId})
         > {
   $$InboxItemsTableTableManager(_$AppDatabase db, $InboxItemsTable table)
     : super(
@@ -10649,6 +10884,7 @@ class $$InboxItemsTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> content = const Value.absent(),
+                Value<String?> entityId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<bool> dirty = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
@@ -10656,6 +10892,7 @@ class $$InboxItemsTableTableManager
               }) => InboxItemsCompanion(
                 id: id,
                 content: content,
+                entityId: entityId,
                 createdAt: createdAt,
                 dirty: dirty,
                 deletedAt: deletedAt,
@@ -10665,6 +10902,7 @@ class $$InboxItemsTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 required String content,
+                Value<String?> entityId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<bool> dirty = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
@@ -10672,15 +10910,59 @@ class $$InboxItemsTableTableManager
               }) => InboxItemsCompanion.insert(
                 id: id,
                 content: content,
+                entityId: entityId,
                 createdAt: createdAt,
                 dirty: dirty,
                 deletedAt: deletedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$InboxItemsTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({entityId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (entityId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.entityId,
+                        referencedTable: $$InboxItemsTableReferences
+                            ._entityIdTable(db),
+                        referencedColumn: $$InboxItemsTableReferences
+                            ._entityIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -10695,12 +10977,9 @@ typedef $$InboxItemsTableProcessedTableManager =
       $$InboxItemsTableAnnotationComposer,
       $$InboxItemsTableCreateCompanionBuilder,
       $$InboxItemsTableUpdateCompanionBuilder,
-      (
-        InboxItemRow,
-        BaseReferences<_$AppDatabase, $InboxItemsTable, InboxItemRow>,
-      ),
+      (InboxItemRow, $$InboxItemsTableReferences),
       InboxItemRow,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool entityId})
     >;
 typedef $$TagsTableCreateCompanionBuilder = TagsCompanion Function({
   Value<String> id,

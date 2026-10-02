@@ -14,13 +14,43 @@ class InboxRepository {
   final TagRepository _tags;
   final TaskRepository _tasks;
 
-  Future<void> capture(String content) {
+  /// [entityId] = capturado dentro de esa Entity (ej. un Project): no va al
+  /// Inbox general, se clasifica desde ahí.
+  Future<void> capture(String content, {String? entityId}) {
     return _db
         .into(_db.inboxItems)
-        .insert(InboxItemsCompanion.insert(content: content));
+        .insert(
+          InboxItemsCompanion.insert(
+            content: content,
+            entityId: Value(entityId),
+          ),
+        );
   }
 
   Stream<List<InboxItemRow>> watchInbox() => _db.watchInboxItems();
+
+  Stream<List<InboxItemRow>> watchInboxFor(String entityId) =>
+      (_db.select(_db.inboxItems)
+            ..where((i) => i.deletedAt.isNull() & i.entityId.equals(entityId))
+            ..orderBy([(i) => OrderingTerm(expression: i.createdAt)]))
+          .watch();
+
+  Future<InboxItemRow> getById(String id) => (_db.select(
+    _db.inboxItems,
+  )..where((i) => i.id.equals(id))).getSingle();
+
+  /// Saca el item del Inbox (soft-delete, para que el sync lo propague):
+  /// ya se procesó, o se descartó.
+  Future<void> markProcessed(String inboxItemId) {
+    return (_db.update(
+      _db.inboxItems,
+    )..where((i) => i.id.equals(inboxItemId))).write(
+      InboxItemsCompanion(
+        deletedAt: Value(DateTime.now()),
+        dirty: const Value(true),
+      ),
+    );
+  }
 
   /// Procesa un InboxItem: crea la Entity correspondiente (+ tags opcionales,
   /// ej. subtipo de wishlist) y borra el item del Inbox. Todo en una
@@ -44,14 +74,7 @@ class InboxRepository {
       for (final tag in tags) {
         await _tags.tagEntity(entityId, tag);
       }
-      await (_db.update(_db.inboxItems)
-            ..where((i) => i.id.equals(inboxItemId)))
-          .write(
-            InboxItemsCompanion(
-              deletedAt: Value(DateTime.now()),
-              dirty: const Value(true),
-            ),
-          );
+      await markProcessed(inboxItemId);
       return entityId;
     });
   }
@@ -74,14 +97,7 @@ class InboxRepository {
         priority: priority,
         dueAt: dueAt,
       );
-      await (_db.update(_db.inboxItems)
-            ..where((i) => i.id.equals(inboxItemId)))
-          .write(
-            InboxItemsCompanion(
-              deletedAt: Value(DateTime.now()),
-              dirty: const Value(true),
-            ),
-          );
+      await markProcessed(inboxItemId);
       return taskId;
     });
   }

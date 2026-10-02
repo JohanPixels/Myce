@@ -5,6 +5,7 @@ import '../../activities/domain/task_enums.dart';
 import '../../core/database/app_database.dart';
 import '../../entities/data/entity_repository.dart';
 import '../../entities/domain/entity_type.dart';
+import '../../inbox/data/inbox_repository.dart';
 import '../../relations/data/relation_repository.dart';
 import '../../tags/data/tag_repository.dart';
 
@@ -18,6 +19,13 @@ const ideaTagName = 'idea';
 /// completo va a `notes.content`.
 const _maxTituloObservacion = 120;
 
+/// `tasks.title` admite hasta 200 — una captura más larga se recorta y el
+/// texto completo va a la descripción de la Task.
+const _maxTituloTarea = 200;
+
+/// Qué resultó ser una captura "sin clasificar" del proyecto.
+enum ProjectCaptureKind { task, observation, requirement, idea }
+
 class ProjectSummary {
   ProjectSummary({
     required this.entity,
@@ -25,6 +33,7 @@ class ProjectSummary {
     required this.done,
     required this.total,
     required this.nextTask,
+    required this.unclassified,
   });
 
   final EntityRow entity;
@@ -36,6 +45,9 @@ class ProjectSummary {
   /// Después), y dentro de cada uno primero la que está En curso.
   /// `null` = el proyecto no tiene próxima acción.
   final TaskRow? nextTask;
+
+  /// Capturas "sin clasificar" hechas dentro del proyecto.
+  final int unclassified;
 }
 
 class ProjectNoteItem {
@@ -56,6 +68,7 @@ class ProjectRepository {
     this._tasks,
     this._relations,
     this._tags,
+    this._inbox,
   );
 
   final AppDatabase _db;
@@ -63,6 +76,7 @@ class ProjectRepository {
   final TaskRepository _tasks;
   final RelationRepository _relations;
   final TagRepository _tags;
+  final InboxRepository _inbox;
 
   /// Re-emite cuando cambia cualquiera de [tablas] — las vistas de abajo
   /// combinan varias consultas, así que se recalculan enteras en vez de
@@ -82,6 +96,7 @@ class ProjectRepository {
     _db.projects,
     _db.tasks,
     _db.activityLinks,
+    _db.inboxItems,
   }, _loadSummaries);
 
   Stream<ProjectSummary?> watchSummary(String projectId) => watchSummaries()
@@ -130,6 +145,18 @@ class ProjectRepository {
       }
     }
 
+    final sinClasificar = <String, int>{};
+    if (ids.isNotEmpty) {
+      final capturas =
+          await (_db.select(_db.inboxItems)..where(
+                (i) => i.entityId.isIn(ids) & i.deletedAt.isNull(),
+              ))
+              .get();
+      for (final c in capturas) {
+        sinClasificar.update(c.entityId!, (n) => n + 1, ifAbsent: () => 1);
+      }
+    }
+
     return rows.map((r) {
       final entity = r.readTable(_db.entities);
       final tareas = (tareasPorProyecto[entity.id] ?? const <TaskRow>[])
@@ -150,6 +177,7 @@ class ProjectRepository {
         done: tareas.where((t) => t.status == TaskStatus.completed.name).length,
         total: tareas.length,
         nextTask: abiertas.firstOrNull,
+        unclassified: sinClasificar[entity.id] ?? 0,
       );
     }).toList();
   }
@@ -216,12 +244,65 @@ class ProjectRepository {
 
   Future<String> addTask(
     String projectId,
-    String title, {
+    String text, {
     TaskHorizon horizon = TaskHorizon.next,
-  }) => _tasks.createLinkedTo(projectId, title: title, horizon: horizon);
+  }) {
+    final (titulo, resto) = _recortar(text, _maxTituloTarea);
+    return _tasks.createLinkedTo(
+      projectId,
+      title: titulo,
+      description: resto,
+      horizon: horizon,
+    );
+  }
 
-  Future<String> addRequirement(String projectId, String title) => _tasks
-      .createLinkedTo(projectId, title: title, linkType: requirementLinkType);
+  Future<String> addRequirement(String projectId, String text) {
+    final (titulo, resto) = _recortar(text, _maxTituloTarea);
+    return _tasks.createLinkedTo(
+      projectId,
+      title: titulo,
+      description: resto,
+      linkType: requirementLinkType,
+    );
+  }
+
+  /// (título, texto completo si hubo que recortar).
+  (String, String?) _recortar(String text, int max) => text.length > max
+      ? ('${text.substring(0, max - 1)}…', text)
+      : (text, null);
+
+  /// Anotar algo en el proyecto sin decidir todavía qué es.
+  Future<void> capture(String projectId, String text) =>
+      _inbox.capture(text, entityId: projectId);
+
+  Stream<List<InboxItemRow>> watchUnclassified(String projectId) =>
+      _inbox.watchInboxFor(projectId);
+
+  /// Convierte la captura en lo que resultó ser y la saca del Inbox del
+  /// proyecto, en una sola transacción.
+  Future<void> classifyCapture(
+    String projectId,
+    String inboxItemId,
+    ProjectCaptureKind kind,
+  ) {
+    return _db.transaction(() async {
+      final item = await _inbox.getById(inboxItemId);
+      switch (kind) {
+        case ProjectCaptureKind.task:
+          await addTask(projectId, item.content);
+        case ProjectCaptureKind.requirement:
+          await addRequirement(projectId, item.content);
+        case ProjectCaptureKind.observation:
+          await addObservation(projectId, item.content);
+        case ProjectCaptureKind.idea:
+          await addObservation(projectId, item.content, idea: true);
+      }
+      await _inbox.markProcessed(inboxItemId);
+    });
+  }
+
+  Future<void> discardCapture(String inboxItemId) =>
+      _inbox.markProcessed(inboxItemId);
 
   /// Crea la Note y su relación `belongs_to` → Project (y el tag `idea` si
   /// corresponde) en una sola transacción.

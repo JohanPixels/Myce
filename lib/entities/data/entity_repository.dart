@@ -172,6 +172,15 @@ class EntityRepository {
       )..where((l) => l.entityId.equals(id))).write(
         ActivityLinksCompanion(deletedAt: Value(ahora), dirty: const Value(true)),
       );
+      // capturas "sin clasificar" hechas dentro de esta Entity
+      await (_db.update(_db.inboxItems)
+            ..where((i) => i.entityId.equals(id) & i.deletedAt.isNull()))
+          .write(
+            InboxItemsCompanion(
+              deletedAt: Value(ahora),
+              dirty: const Value(true),
+            ),
+          );
       await (_db.update(_db.entities)..where((e) => e.id.equals(id))).write(
         EntitiesCompanion(deletedAt: Value(ahora), dirty: const Value(true)),
       );

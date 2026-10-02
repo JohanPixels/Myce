@@ -138,6 +138,22 @@ void main() {
     expect(upsert['size'], 'hour');
   });
 
+  test('pushea el entity_id de una captura hecha dentro de un proyecto', () async {
+    final projectId = await entities.create(
+      type: EntityType.project,
+      title: 'Proyecto X',
+    );
+    await db.into(db.inboxItems).insert(
+      InboxItemsCompanion.insert(content: 'algo', entityId: Value(projectId)),
+    );
+
+    final fake = FakeSyncClient();
+    await pushDirtyData(db, userId: 'u1', client: fake);
+
+    final upsert = fake.upserts.firstWhere((e) => e.key == 'inbox_items').value;
+    expect(upsert['entity_id'], projectId);
+  });
+
   test('pushea emoji y color de un Project', () async {
     final entityId = await entities.create(
       type: EntityType.project,

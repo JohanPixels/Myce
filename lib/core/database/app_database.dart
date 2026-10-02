@@ -39,7 +39,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -107,11 +107,20 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(tasks, tasks.horizon);
         await m.addColumn(tasks, tasks.size);
       }
+      if (from < 7) {
+        // Captura "sin clasificar" dentro de un proyecto.
+        await m.addColumn(inboxItems, inboxItems.entityId);
+      }
     },
   );
 
+  /// Inbox general: solo lo capturado sin contexto (`entityId` null). Lo
+  /// capturado dentro de un proyecto se clasifica desde ese proyecto.
   Stream<List<InboxItemRow>> watchInboxItems() =>
-      (select(inboxItems)..where((i) => i.deletedAt.isNull())).watch();
+      (select(inboxItems)
+            ..where((i) => i.deletedAt.isNull() & i.entityId.isNull())
+            ..orderBy([(i) => OrderingTerm(expression: i.createdAt)]))
+          .watch();
 
   Stream<List<EntityRow>> watchEntitiesByType(String type) => (select(
     entities,

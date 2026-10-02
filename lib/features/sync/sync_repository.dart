@@ -490,6 +490,7 @@ Future<void> _pushDirtyInboxItems(
       'id': i.id,
       'user_id': userId,
       'content': i.content,
+      'entity_id': i.entityId,
       'created_at': i.createdAt.toIso8601String(),
       'deleted_at': i.deletedAt?.toIso8601String(),
     },
@@ -849,6 +850,7 @@ Future<void> _pullInboxItems(AppDatabase db, SyncClient client) async {
       InboxItemsCompanion(
         id: Value(row['id'] as String),
         content: Value(row['content'] as String),
+        entityId: Value(row['entity_id'] as String?),
         createdAt: Value(DateTime.parse(row['created_at'] as String)),
         deletedAt: Value(_parseNullableDate(row['deleted_at'])),
         dirty: const Value(false),
