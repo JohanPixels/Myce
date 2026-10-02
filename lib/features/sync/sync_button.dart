@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'sync_repository.dart';
 import '../../core/database/database_provider.dart';
+import '../../core/theme/app_icons.dart';
 
 /// Botón manual para forzar un ciclo de sync (push+pull) ya mismo, además
 /// del automático (al abrir la app, al volver a foreground, y periódico —
@@ -47,7 +48,7 @@ class _SyncButtonState extends ConsumerState<SyncButton> {
               height: 20,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : const Icon(Icons.sync),
+          : const Icon(AppIcons.sync),
       tooltip: 'Sincronizar ahora',
     );
   }

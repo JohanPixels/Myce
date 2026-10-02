@@ -10,6 +10,8 @@ import '../data/project_repository.dart';
 import '../data/project_repository_provider.dart';
 import 'project_avatar.dart';
 import '../../core/widgets/copiar.dart';
+import '../../core/theme/app_icons.dart';
+import '../../core/widgets/estado_vacio.dart';
 
 /// Pestaña "Proyectos": tarjetas con progreso y próxima acción, filtradas
 /// por estado. Reemplaza al `CategoryScreen` genérico solo para Project.
@@ -111,22 +113,18 @@ class _Vacio extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(context.octoSpacing.xl),
-        child: Text(
-          filtro == EntityStatus.active
-              ? 'No hay proyectos activos.\nCaptura una idea y clasifícala como '
-                    'Proyecto desde el Inbox.'
-              : 'Nada en ${filtro.label.toLowerCase()}.',
-          textAlign: TextAlign.center,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ),
-    );
+    return filtro == EntityStatus.active
+        ? const EstadoVacioGrande(
+            icono: AppIconsDuo.proyecto,
+            titulo: 'Sin proyectos activos',
+            texto:
+                'Captura una idea y clasifícala como Proyecto desde el Inbox.',
+          )
+        : EstadoVacioGrande(
+            icono: AppIconsDuo.brote,
+            titulo: 'Nada en ${filtro.label.toLowerCase()}',
+            texto: 'Aquí aparecen los proyectos con ese estado.',
+          );
   }
 }
 
@@ -257,7 +255,7 @@ class _ProximaAccion extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(Icons.error_outline, size: 16, color: atencion),
+            Icon(AppIcons.alerta, size: 16, color: atencion),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -336,13 +334,19 @@ class _ProximoRatoCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'PARA TU PRÓXIMO RATO',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: atencion,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                ),
+              Row(
+                children: [
+                  Icon(AppIcons.ahora, size: 16, color: atencion),
+                  const SizedBox(width: 6),
+                  Text(
+                    'PARA TU PRÓXIMO RATO',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: atencion,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               Text(

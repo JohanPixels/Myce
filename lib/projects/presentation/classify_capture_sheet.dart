@@ -7,6 +7,8 @@ import '../data/project_repository.dart';
 import '../data/project_repository_provider.dart';
 import '../../core/widgets/renombrar_dialog.dart';
 import '../../inbox/data/inbox_repository_provider.dart';
+import '../../core/theme/app_icons.dart';
+
 
 /// Recorre las capturas "sin clasificar" del proyecto una por una: muestra
 /// la primera y cuatro botones (Tarea / Observación / Requisito / Idea).
@@ -130,22 +132,26 @@ class _ClasificarSheetState extends ConsumerState<_ClasificarSheet> {
                 children: [
                   _Opcion(
                     titulo: 'Tarea',
+                    icono: AppIconsDuo.tarea,
                     detalle: 'Una acción que puedo hacer',
                     destacada: true,
                     onTap: () => elegir(ProjectCaptureKind.task),
                   ),
                   _Opcion(
                     titulo: 'Observación',
+                    icono: AppIconsDuo.observacion,
                     detalle: 'Algo que noté, aún sin solución',
                     onTap: () => elegir(ProjectCaptureKind.observation),
                   ),
                   _Opcion(
                     titulo: 'Requisito',
+                    icono: AppIconsDuo.requisito,
                     detalle: 'Algo que ${widget.projectTitle} debe cumplir',
                     onTap: () => elegir(ProjectCaptureKind.requirement),
                   ),
                   _Opcion(
                     titulo: 'Idea',
+                    icono: AppIconsDuo.idea,
                     detalle: 'Quizás algún día',
                     onTap: () => elegir(ProjectCaptureKind.idea),
                   ),
@@ -155,7 +161,7 @@ class _ClasificarSheetState extends ConsumerState<_ClasificarSheet> {
               Row(
                 children: [
                   TextButton.icon(
-                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    icon: const Icon(AppIcons.editar, size: 18),
                     label: const Text('Editar'),
                     onPressed: () async {
                       final nuevo = await pedirNuevoTexto(
@@ -173,7 +179,7 @@ class _ClasificarSheetState extends ConsumerState<_ClasificarSheet> {
                   ),
                   const Spacer(),
                   TextButton.icon(
-                    icon: const Icon(Icons.delete_outline, size: 18),
+                    icon: const Icon(AppIcons.eliminar, size: 18),
                     label: const Text('Descartar'),
                     onPressed: () {
                       setState(() => _procesados.add(item.id));
@@ -192,12 +198,14 @@ class _ClasificarSheetState extends ConsumerState<_ClasificarSheet> {
 
 class _Opcion extends StatelessWidget {
   const _Opcion({
+    required this.icono,
     required this.titulo,
     required this.detalle,
     required this.onTap,
     this.destacada = false,
   });
 
+  final IconoDuoData icono;
   final String titulo;
   final String detalle;
   final VoidCallback onTap;
@@ -227,12 +235,22 @@ class _Opcion extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                titulo,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: destacada ? scheme.primary : null,
-                ),
+              Row(
+                children: [
+                  IconoDuo(
+                    icono,
+                    size: 20,
+                    color: destacada ? scheme.primary : scheme.onSurface,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    titulo,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: destacada ? scheme.primary : null,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 2),
               Text(

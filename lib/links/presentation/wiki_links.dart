@@ -7,6 +7,7 @@ import '../../core/widgets/markdown_field.dart';
 import '../../entities/domain/entity_type.dart';
 import '../data/link_repository.dart';
 import '../data/link_repository_provider.dart';
+import '../../core/theme/app_icons.dart';
 
 /// Conecta un [MarkdownField] con la base para los `[[enlaces]]`:
 /// sugerencias por título al escribir, y al tocar un enlace abre esa
@@ -71,7 +72,7 @@ class MencionesSection extends ConsumerWidget {
               Card(
                 child: ListTile(
                   leading: Icon(
-                    h.isTask ? Icons.check_circle_outline : Icons.link,
+                    h.isTask ? AppIcons.tarea : AppIcons.enlace,
                     color: theme.colorScheme.primary,
                   ),
                   title: Text(h.title),

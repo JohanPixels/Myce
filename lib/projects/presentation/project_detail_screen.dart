@@ -19,6 +19,8 @@ import '../../entities/data/entity_repository_provider.dart';
 import '../../core/widgets/markdown_field.dart';
 import '../../relations/presentation/add_relation_sheet.dart';
 import '../../links/presentation/wiki_links.dart';
+import '../../core/theme/app_icons.dart';
+import '../../core/widgets/estado_vacio.dart';
 
 /// Pantalla propia de un Project: cabecera con progreso y tres pestañas —
 /// Tareas (acciones), Observaciones (cosas que notaste, Notes del proyecto)
@@ -83,9 +85,7 @@ class ProjectDetailScreen extends ConsumerWidget {
                   for (final estado in EntityStatus.values)
                     ListTile(
                       leading: Icon(
-                        estado == actual
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_unchecked,
+                        estado == actual ? AppIcons.radioOn : AppIcons.radioOff,
                       ),
                       title: Text(estado.label),
                       subtitle: Text(switch (estado) {
@@ -277,7 +277,7 @@ class _Cabecera extends StatelessWidget {
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            Icon(Icons.arrow_drop_down, size: 18, color: color),
+                            Icon(AppIcons.caretAbajo, size: 18, color: color),
                           ],
                         ),
                       ),
@@ -400,7 +400,7 @@ class _SinClasificarBanner extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: atencion),
+              Icon(AppIcons.caretDerecha, color: atencion),
             ],
           ),
         ),
@@ -496,7 +496,7 @@ class _CampoRapidoState extends State<_CampoRapido> {
       return Align(
         alignment: Alignment.centerLeft,
         child: TextButton.icon(
-          icon: const Icon(Icons.add, size: 20),
+          icon: const Icon(AppIcons.agregar, size: 20),
           label: Text(widget.colapsado!),
           onPressed: () {
             setState(() => _abierto = true);
@@ -517,7 +517,7 @@ class _CampoRapidoState extends State<_CampoRapido> {
             hintText: widget.hint,
             suffixIcon: widget.textoBoton == null
                 ? IconButton(
-                    icon: const Icon(Icons.add),
+                    icon: const Icon(AppIcons.agregar),
                     tooltip: 'Agregar',
                     onPressed: _enviar,
                   )
@@ -546,12 +546,17 @@ class _TituloSeccion extends StatelessWidget {
     required this.cantidad,
     this.color,
     this.pista,
+    this.icono,
   });
 
   final String texto;
   final int cantidad;
   final Color? color;
   final String? pista;
+
+  /// Ícono a la izquierda del título; sin ícono se dibuja un punto de
+  /// [color] (o nada, si tampoco hay color).
+  final IconData? icono;
 
   @override
   Widget build(BuildContext context) {
@@ -560,7 +565,14 @@ class _TituloSeccion extends StatelessWidget {
       padding: const EdgeInsets.only(top: 20, bottom: 8),
       child: Row(
         children: [
-          if (color != null) ...[
+          if (icono != null) ...[
+            Icon(
+              icono,
+              size: 18,
+              color: color ?? theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+          ] else if (color != null) ...[
             Container(
               width: 8,
               height: 8,
@@ -653,13 +665,17 @@ class _TareasTabState extends ConsumerState<_TareasTab> {
                 texto: h.label,
                 cantidad: items.length,
                 color: color,
+                icono: AppIcons.deHorizonte(h),
                 pista: h == TaskHorizon.now ? 'máx. $maxTareasAhora' : null,
               ),
               if (items.isEmpty)
-                _Vacio(
+                EstadoVacio(
                   texto: _tengo == null
                       ? vacio
                       : 'Nada que quepa en ese tiempo.',
+                  icono: h == TaskHorizon.now
+                      ? AppIconsDuo.ahora
+                      : AppIconsDuo.brote,
                 )
               else
                 for (final t in items)
@@ -847,7 +863,7 @@ class _TareaTile extends ConsumerWidget {
                 ),
               if (onPlan != null)
                 IconButton(
-                  icon: const Icon(Icons.more_horiz),
+                  icon: const Icon(AppIcons.mas),
                   tooltip: 'Cuándo y cuánto tiempo',
                   onPressed: onPlan,
                 )
@@ -855,30 +871,6 @@ class _TareaTile extends ConsumerWidget {
                 const SizedBox(width: 12),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Vacio extends StatelessWidget {
-  const _Vacio({required this.texto});
-
-  final String texto;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Text(
-        texto,
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
         ),
       ),
     );
@@ -931,13 +923,14 @@ class _NotasTabState extends ConsumerState<_NotasTab> {
                 Expanded(
                   child: _TituloSeccion(
                     texto: 'Documentos',
+                    icono: AppIcons.documento,
                     cantidad: documentos.length,
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: TextButton.icon(
-                    icon: const Icon(Icons.add, size: 18),
+                    icon: const Icon(AppIcons.agregar, size: 18),
                     label: const Text('Nuevo'),
                     onPressed: () => _nuevoDocumento(context),
                   ),
@@ -945,15 +938,17 @@ class _NotasTabState extends ConsumerState<_NotasTab> {
               ],
             ),
             if (documentos.isEmpty)
-              const _Vacio(
+              const EstadoVacio(
                 texto:
                     'Especificaciones, guías, decisiones… lo que quieras '
                     'tener a mano. Se escriben en Markdown.',
+                icono: AppIconsDuo.documento,
               )
             else
               for (final d in documentos) _DocumentoCard(item: d),
             _TituloSeccion(
               texto: 'Observaciones e ideas',
+              icono: AppIcons.idea,
               cantidad: items.length,
             ),
             _CampoRapido(
@@ -984,7 +979,10 @@ class _NotasTabState extends ConsumerState<_NotasTab> {
             ),
             const SizedBox(height: 12),
             if (items.isEmpty)
-              const _Vacio(texto: 'Nada pendiente por pensar.')
+              const EstadoVacio(
+                texto: 'Nada pendiente por pensar.',
+                icono: AppIconsDuo.idea,
+              )
             else
               for (final item in items)
                 _ObservacionCard(projectId: widget.projectId, item: item),
@@ -1059,7 +1057,7 @@ class _ObservacionCard extends ConsumerWidget {
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
-                  icon: const Icon(Icons.arrow_forward, size: 18),
+                  icon: const Icon(AppIcons.flechaDerecha, size: 18),
                   label: const Text('Convertir en tarea'),
                   onPressed: () {
                     ref
@@ -1176,8 +1174,9 @@ class _RequisitosTab extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             if (reqs.isEmpty)
-              const _Vacio(
+              const EstadoVacio(
                 texto: 'Sin requisitos todavía. Ej: "Funciona sin internet".',
+                icono: AppIconsDuo.requisito,
               )
             else
               for (final r in reqs) _RequisitoTile(requisito: r),
@@ -1275,10 +1274,7 @@ class _DocumentoCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.description_outlined,
-                color: theme.colorScheme.primary,
-              ),
+              Icon(AppIcons.documento, color: theme.colorScheme.primary),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -1303,7 +1299,7 @@ class _DocumentoCard extends StatelessWidget {
                 ),
               ),
               Icon(
-                Icons.chevron_right,
+                AppIcons.caretDerecha,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ],
@@ -1350,13 +1346,19 @@ class _ContextoTab extends ConsumerWidget {
                   Expanded(
                     child: _TituloSeccion(
                       texto: titulo,
+                      icono: switch (g) {
+                        ProjectContextGroup.belongsTo => AppIcons.meta,
+                        ProjectContextGroup.resources => AppIcons.recurso,
+                        ProjectContextGroup.people => AppIcons.personas,
+                        ProjectContextGroup.other => AppIcons.conexiones,
+                      },
                       cantidad: lista.length,
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
                     child: TextButton.icon(
-                      icon: const Icon(Icons.add_link, size: 18),
+                      icon: const Icon(AppIcons.conectar, size: 18),
                       label: const Text('Conectar'),
                       onPressed: () =>
                           mostrarAgregarRelacionSheet(context, ref, projectId),
@@ -1365,7 +1367,7 @@ class _ContextoTab extends ConsumerWidget {
                 ],
               ),
               if (lista.isEmpty)
-                _Vacio(texto: vacio)
+                EstadoVacio(texto: vacio)
               else
                 for (final item in lista)
                   _ConexionTile(
@@ -1432,6 +1434,7 @@ class _ConexionTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       clipBehavior: Clip.antiAlias,
       child: ListTile(
+        leading: Icon(AppIcons.deTipo(type), color: theme.colorScheme.primary),
         title: Text(item.entity.title),
         subtitle: Text(
           type.label,
@@ -1442,7 +1445,7 @@ class _ConexionTile extends StatelessWidget {
         onTap: () => pushEntityDetail(context, item.entity.id),
         onLongPress: () => copiarTexto(context, item.entity.title),
         trailing: IconButton(
-          icon: const Icon(Icons.link_off),
+          icon: const Icon(AppIcons.desconectar),
           tooltip: 'Quitar conexión',
           onPressed: onQuitar,
         ),

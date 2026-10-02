@@ -31,14 +31,16 @@ void main() async {
   );
 }
 
-/// Manrope y Bricolage Grotesque van empaquetadas (pubspec.yaml) bajo OFL —
-/// la licencia pide acompañarlas con su texto; así aparece en la pantalla
+/// Manrope y Bricolage Grotesque (OFL) y los íconos Phosphor (MIT) van
+/// empaquetados (pubspec.yaml) — sus licencias piden acompañarlos con su
+/// texto; así aparece en la pantalla
 /// estándar de licencias de Flutter.
 void _registrarLicenciasDeFuentes() {
   LicenseRegistry.addLicense(() async* {
     for (final (paquete, archivo) in [
       ('Manrope', 'assets/fonts/OFL-Manrope.txt'),
       ('Bricolage Grotesque', 'assets/fonts/OFL-BricolageGrotesque.txt'),
+      ('Phosphor Icons', 'assets/fonts/phosphor/LICENSE-Phosphor.txt'),
     ]) {
       yield LicenseEntryWithLineBreaks([
         paquete,

@@ -19,6 +19,7 @@ import 'package:octo_dash/core/database/app_database.dart';
 import 'package:octo_dash/core/database/database_provider.dart';
 import 'package:octo_dash/core/navigation/app_sections.dart';
 import 'package:octo_dash/core/navigation/carousel_nav_bar.dart';
+import 'package:octo_dash/core/theme/app_icons.dart';
 import 'package:octo_dash/core/theme/app_theme.dart';
 import 'package:octo_dash/entities/data/entity_repository.dart';
 import 'package:octo_dash/entities/domain/entity_type.dart';
@@ -126,15 +127,15 @@ Widget _shell(String seccion, Widget body, {bool conAppBar = true}) {
           ? AppBar(
               title: Text(appSections[index].titulo),
               actions: const [
-                IconButton(onPressed: null, icon: Icon(Icons.search)),
-                IconButton(onPressed: null, icon: Icon(Icons.sync)),
-                IconButton(onPressed: null, icon: Icon(Icons.settings_outlined)),
+                IconButton(onPressed: null, icon: Icon(AppIcons.buscar)),
+                IconButton(onPressed: null, icon: Icon(AppIcons.sync)),
+                IconButton(onPressed: null, icon: Icon(AppIcons.ajustes)),
               ],
             )
           : null,
       body: body,
       floatingActionButton: conAppBar
-          ? FloatingActionButton(onPressed: () {}, child: const Icon(Icons.add))
+          ? FloatingActionButton(onPressed: () {}, child: const Icon(AppIcons.agregar))
           : null,
       bottomNavigationBar: conAppBar
           ? Builder(
@@ -167,6 +168,13 @@ void main() {
       for (final w in ['SemiBold', 'Bold', 'ExtraBold'])
         'assets/fonts/BricolageGrotesque-$w.ttf',
     ]);
+    for (final (familia, archivo) in [
+      ('PhosphorRegular', 'Phosphor.ttf'),
+      ('PhosphorDuotone', 'Phosphor-Duotone.ttf'),
+      ('PhosphorFill', 'Phosphor-Fill.ttf'),
+    ]) {
+      await _cargarFuente(familia, ['assets/fonts/phosphor/$archivo']);
+    }
     await _cargarFuente('MaterialIcons', [
       '$root/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
     ]);

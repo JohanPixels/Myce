@@ -5,6 +5,10 @@ import '../../activities/data/task_repository.dart';
 import '../../activities/domain/task_enums.dart';
 import '../data/entity_repository.dart';
 import '../domain/entity_type.dart';
+import '../../core/theme/app_icons.dart';
+
+
+import '../../core/widgets/estado_vacio.dart';
 
 /// Reusa `EntityRepository.search()` (ya conectado en los sheets de
 /// "vincular con otra entity") como buscador general, accesible desde
@@ -31,12 +35,15 @@ class EntitySearchDelegate extends SearchDelegate<SearchHit?> {
   @override
   List<Widget> buildActions(BuildContext context) => [
     if (query.isNotEmpty)
-      IconButton(icon: const Icon(Icons.clear), onPressed: () => query = ''),
+      IconButton(
+        icon: const Icon(AppIcons.cerrar),
+        onPressed: () => query = '',
+      ),
   ];
 
   @override
   Widget buildLeading(BuildContext context) => IconButton(
-    icon: const Icon(Icons.arrow_back),
+    icon: const Icon(AppIcons.atras),
     onPressed: () => close(context, null),
   );
 
@@ -53,7 +60,11 @@ class EntitySearchDelegate extends SearchDelegate<SearchHit?> {
     final texto = query.trim();
     final theme = Theme.of(context);
     if (texto.isEmpty) {
-      return const Center(child: Text('Busca proyectos, notas, tareas…'));
+      return const EstadoVacioGrande(
+        icono: AppIconsDuo.buscar,
+        titulo: 'Buscar en Myce',
+        texto: 'Proyectos, notas, recursos, metas y tareas.',
+      );
     }
     return FutureBuilder<(List<EntityRow>, List<TaskRow>)>(
       future: _buscar(texto),
@@ -63,7 +74,11 @@ class EntitySearchDelegate extends SearchDelegate<SearchHit?> {
         }
         final (entidades, tareas) = snapshot.data!;
         if (entidades.isEmpty && tareas.isEmpty) {
-          return const Center(child: Text('Sin resultados'));
+          return const EstadoVacioGrande(
+            icono: AppIconsDuo.sinResultados,
+            titulo: 'Sin resultados',
+            texto: 'Prueba con otra palabra del título.',
+          );
         }
         Widget encabezado(String t) => Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
@@ -81,6 +96,7 @@ class EntitySearchDelegate extends SearchDelegate<SearchHit?> {
             if (entidades.isNotEmpty) encabezado('Proyectos, notas y más'),
             for (final e in entidades)
               ListTile(
+                leading: Icon(AppIcons.deTipo(e.type.toEntityType())),
                 title: Text(e.title),
                 subtitle: Text(e.type.toEntityType().label),
                 onTap: () => close(context, SearchHit(e.id, isTask: false)),
@@ -90,8 +106,8 @@ class EntitySearchDelegate extends SearchDelegate<SearchHit?> {
               ListTile(
                 leading: Icon(
                   t.status == TaskStatus.completed.name
-                      ? Icons.check_circle
-                      : Icons.radio_button_unchecked,
+                      ? AppIcons.tareaHecha
+                      : AppIcons.radioOff,
                 ),
                 title: Text(t.title),
                 subtitle: Text(t.status.toTaskStatus().label),

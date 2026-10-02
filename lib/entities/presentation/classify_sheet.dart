@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../activities/domain/task_enums.dart';
 import '../../inbox/data/inbox_repository_provider.dart';
 import '../domain/entity_type.dart';
+import '../../core/theme/app_icons.dart';
 
 /// Resultado de clasificar un InboxItem — lo que se creó (Entity o Task) y
 /// su id, para que quien llamó al sheet pueda ofrecer un acceso directo
@@ -71,6 +72,7 @@ Future<ClassifyResult?> mostrarClasificarSheet(
                     children: [
                       ...EntityType.values.map((tipo) {
                         return ChoiceChip(
+                          avatar: Icon(AppIcons.deTipo(tipo), size: 18),
                           label: Text(tipo.label),
                           selected: tipoSeleccionado == tipo,
                           onSelected: (_) => setState(() {
@@ -84,6 +86,7 @@ Future<ClassifyResult?> mostrarClasificarSheet(
                         );
                       }),
                       ChoiceChip(
+                        avatar: const Icon(AppIcons.tarea, size: 18),
                         label: const Text('Tarea'),
                         selected: esTarea,
                         onSelected: (_) => setState(() {
@@ -123,7 +126,7 @@ Future<ClassifyResult?> mostrarClasificarSheet(
                           style: Theme.of(ctx).textTheme.bodyMedium,
                         ),
                         IconButton(
-                          icon: const Icon(Icons.edit_calendar_outlined),
+                          icon: const Icon(AppIcons.calendario),
                           tooltip: 'Elegir fecha límite',
                           onPressed: () async {
                             final picked = await showDatePicker(
@@ -139,10 +142,9 @@ Future<ClassifyResult?> mostrarClasificarSheet(
                         ),
                         if (fechaLimite != null)
                           IconButton(
-                            icon: const Icon(Icons.clear),
+                            icon: const Icon(AppIcons.cerrar),
                             tooltip: 'Quitar fecha límite',
-                            onPressed: () =>
-                                setState(() => fechaLimite = null),
+                            onPressed: () => setState(() => fechaLimite = null),
                           ),
                       ],
                     ),
@@ -206,7 +208,7 @@ Future<ClassifyResult?> mostrarClasificarSheet(
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.add),
+                          icon: const Icon(AppIcons.agregar),
                           tooltip: 'Agregar tag',
                           onPressed: agregarTag,
                         ),

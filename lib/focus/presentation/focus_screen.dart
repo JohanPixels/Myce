@@ -8,6 +8,8 @@ import '../../core/theme/app_theme.dart';
 import '../data/focus_repository.dart';
 import '../data/focus_repository_provider.dart';
 import 'task_tile.dart';
+import '../../core/theme/app_icons.dart';
+import '../../core/widgets/estado_vacio.dart';
 
 /// Cuántas tareas de "Siguiente" se muestran antes de "Ver todas".
 const _siguienteVisibles = 5;
@@ -101,7 +103,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
               decoration: InputDecoration(
                 hintText: 'Algo para hacer ahora…',
                 suffixIcon: IconButton(
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(AppIcons.agregar),
                   tooltip: 'Agregar a Ahora',
                   onPressed: _agregar,
                 ),
@@ -149,12 +151,15 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
 
             _Titulo(texto: 'Ahora', cantidad: ahora.length, color: atencion),
             if (ahora.isEmpty)
-              _Vacio(
+              EstadoVacio(
                 texto: _tengo != null
                     ? 'Nada en Ahora que quepa en ese tiempo.'
                     : siguiente.isEmpty
                     ? 'Nada pendiente. Disfruta el rato 🌱'
                     : 'Nada en Ahora. Elige algo de Siguiente con ⋯ → Ahora.',
+                icono: siguiente.isEmpty && _tengo == null
+                    ? AppIconsDuo.celebrar
+                    : AppIconsDuo.ahora,
               )
             else
               for (final i in ahora) tile(i),
@@ -232,30 +237,6 @@ class _Titulo extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _Vacio extends StatelessWidget {
-  const _Vacio({required this.texto});
-
-  final String texto;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Text(
-        texto,
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
       ),
     );
   }

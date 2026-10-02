@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import 'copiar.dart';
+import '../theme/app_icons.dart';
 
 /// Cómo se resuelven los enlaces `[[Otra nota]]` dentro de un
 /// [MarkdownField] — lo provee quien conoce la base (ver
@@ -142,12 +143,12 @@ class _MarkdownFieldState extends State<MarkdownField> {
               segments: const [
                 ButtonSegment(
                   value: false,
-                  icon: Icon(Icons.visibility_outlined, size: 18),
+                  icon: Icon(AppIcons.vistaPrevia, size: 18),
                   tooltip: 'Vista previa',
                 ),
                 ButtonSegment(
                   value: true,
-                  icon: Icon(Icons.edit_outlined, size: 18),
+                  icon: Icon(AppIcons.editar, size: 18),
                   tooltip: 'Editar',
                 ),
               ],
@@ -340,28 +341,28 @@ class _EditorState extends State<_Editor> {
           spacing: 4,
           children: [
             IconButton(
-              icon: const Icon(Icons.title),
+              icon: const Icon(AppIcons.titulo),
               tooltip: 'Título',
               onPressed: () => _prefijarLinea('## '),
             ),
             IconButton(
-              icon: const Icon(Icons.format_bold),
+              icon: const Icon(AppIcons.negrita),
               tooltip: 'Negrita',
               onPressed: () => _envolver('**'),
             ),
             IconButton(
-              icon: const Icon(Icons.format_list_bulleted),
+              icon: const Icon(AppIcons.lista),
               tooltip: 'Lista',
               onPressed: () => _prefijarLinea('- '),
             ),
             IconButton(
-              icon: const Icon(Icons.check_box_outlined),
+              icon: const Icon(AppIcons.casilla),
               tooltip: 'Casilla',
               onPressed: () => _prefijarLinea('- [ ] '),
             ),
             if (widget.enlaces != null)
               IconButton(
-                icon: const Icon(Icons.link),
+                icon: const Icon(AppIcons.enlace),
                 tooltip: 'Enlazar a otra nota ([[ ]])',
                 onPressed: () => _envolver('[[', ']]'),
               ),
@@ -385,7 +386,7 @@ class _EditorState extends State<_Editor> {
                       Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: ActionChip(
-                          avatar: const Icon(Icons.link, size: 16),
+                          avatar: const Icon(AppIcons.enlace, size: 16),
                           label: Text(t),
                           onPressed: () => _completar(t),
                         ),
@@ -394,7 +395,7 @@ class _EditorState extends State<_Editor> {
                     // tocar el enlace en la vista previa.
                     if (consulta.isNotEmpty && !existe)
                       ActionChip(
-                        avatar: const Icon(Icons.add, size: 16),
+                        avatar: const Icon(AppIcons.agregar, size: 16),
                         label: Text('Nueva: $consulta'),
                         onPressed: () => _completar(consulta),
                       ),
@@ -653,13 +654,13 @@ class _VistaPreviaState extends State<_VistaPrevia> {
               children: [
                 if (titulos >= 2)
                   TextButton.icon(
-                    icon: const Icon(Icons.toc, size: 20),
+                    icon: const Icon(AppIcons.indice, size: 20),
                     label: Text('Índice ($titulos)'),
                     onPressed: () => _mostrarIndice(context, _secciones),
                   ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.open_in_full, size: 20),
+                  icon: const Icon(AppIcons.pantallaCompleta, size: 20),
                   tooltip: 'Leer en pantalla completa',
                   onPressed: widget.onPantallaCompleta,
                 ),
@@ -702,7 +703,7 @@ class _MarkdownLecturaScreenState extends State<MarkdownLecturaScreen> {
         actions: [
           if (titulos >= 2)
             IconButton(
-              icon: const Icon(Icons.toc),
+              icon: const Icon(AppIcons.indice),
               tooltip: 'Índice',
               onPressed: () => _mostrarIndice(context, _secciones),
             ),

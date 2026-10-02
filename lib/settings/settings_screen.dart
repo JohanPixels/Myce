@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/theme_provider.dart';
 import 'capture_button_preference.dart';
+import '../core/theme/app_icons.dart';
 
 /// Preferencias del dispositivo y de la cuenta. Pantalla completa (fuera
 /// del carrusel de secciones), se abre desde el ícono de engranaje.
@@ -84,17 +85,17 @@ class SettingsScreen extends ConsumerWidget {
                       segments: const [
                         ButtonSegment(
                           value: ThemeMode.system,
-                          icon: Icon(Icons.brightness_auto_outlined),
+                          icon: Icon(AppIcons.temaSistema),
                           label: Text('Sistema'),
                         ),
                         ButtonSegment(
                           value: ThemeMode.light,
-                          icon: Icon(Icons.light_mode_outlined),
+                          icon: Icon(AppIcons.temaClaro),
                           label: Text('Claro'),
                         ),
                         ButtonSegment(
                           value: ThemeMode.dark,
-                          icon: Icon(Icons.dark_mode_outlined),
+                          icon: Icon(AppIcons.temaOscuro),
                           label: Text('Oscuro'),
                         ),
                       ],
@@ -154,13 +155,13 @@ class SettingsScreen extends ConsumerWidget {
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.person_outline),
+                  leading: const Icon(AppIcons.persona),
                   title: const Text('Sesión iniciada como'),
                   subtitle: Text(email ?? '—'),
                 ),
                 const Divider(indent: 16, endIndent: 16),
                 ListTile(
-                  leading: Icon(Icons.logout, color: theme.colorScheme.error),
+                  leading: Icon(AppIcons.salir, color: theme.colorScheme.error),
                   title: Text(
                     'Cerrar sesión',
                     style: TextStyle(color: theme.colorScheme.error),
@@ -174,10 +175,10 @@ class SettingsScreen extends ConsumerWidget {
           titulo('Acerca de'),
           Card(
             child: ListTile(
-              leading: const Icon(Icons.description_outlined),
+              leading: const Icon(AppIcons.documento),
               title: const Text('Licencias'),
               subtitle: const Text('Librerías y fuentes que usa Myce'),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: const Icon(AppIcons.caretDerecha),
               onTap: () =>
                   showLicensePage(context: context, applicationName: 'Myce'),
             ),

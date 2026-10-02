@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import 'app_icons.dart';
+
 @immutable
 class OctoDashColors extends ThemeExtension<OctoDashColors> {
   const OctoDashColors({
@@ -272,6 +274,11 @@ ThemeData _buildTheme(ColorScheme scheme, OctoDashColors colores) {
     textTheme: text,
     scaffoldBackgroundColor: scheme.surface,
     extensions: [colores, OctoDashSpacing.defaults],
+    // Flecha de volver y X de cerrar de Flutter, también en Phosphor.
+    actionIconTheme: ActionIconThemeData(
+      backButtonIconBuilder: (_) => const Icon(AppIcons.atras),
+      closeButtonIconBuilder: (_) => const Icon(AppIcons.cerrar),
+    ),
     appBarTheme: AppBarTheme(
       backgroundColor: scheme.surface,
       foregroundColor: scheme.onSurface,

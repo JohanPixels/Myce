@@ -6,6 +6,8 @@ import '../core/navigation/navigation_helpers.dart';
 import '../entities/presentation/classify_sheet.dart';
 import '../core/widgets/copiar.dart';
 import '../core/widgets/renombrar_dialog.dart';
+import '../core/theme/app_icons.dart';
+import '../core/widgets/estado_vacio.dart';
 
 class InboxScreen extends ConsumerStatefulWidget {
   const InboxScreen({super.key});
@@ -55,31 +57,11 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
             .toList();
         final theme = Theme.of(context);
         if (items.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.inbox_outlined,
-                    size: 48,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(height: 12),
-                  Text('Inbox vacío', style: theme.textTheme.titleLarge),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Captura lo que se te ocurra con el + y decide después '
-                    'qué es.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          return const EstadoVacioGrande(
+            icono: AppIconsDuo.inbox,
+            titulo: 'Inbox vacío',
+            texto:
+                'Captura lo que se te ocurra con el + y decide después qué es.',
           );
         }
         return ListView.builder(
@@ -173,7 +155,7 @@ class _FondoEliminar extends StatelessWidget {
       ),
       alignment: alignment,
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Icon(Icons.delete_outline, color: scheme.onErrorContainer),
+      child: Icon(AppIcons.eliminar, color: scheme.onErrorContainer),
     );
   }
 }

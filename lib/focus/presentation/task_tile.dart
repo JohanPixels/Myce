@@ -9,6 +9,7 @@ import '../../core/widgets/copiar.dart';
 import '../../entities/domain/entity_type.dart';
 import '../../projects/presentation/project_avatar.dart';
 import '../data/focus_repository.dart';
+import '../../core/theme/app_icons.dart';
 
 /// Fila de tarea con su contexto (proyecto con emoji, "Área · X" o
 /// "Suelta"), tamaño, fecha y prioridad si tiene — la usan "Ahora" y la
@@ -125,7 +126,7 @@ class TaskTile extends ConsumerWidget {
                             priority == TaskPriority.medium) ...[
                           const SizedBox(width: 6),
                           Icon(
-                            Icons.flag,
+                            AppIcons.prioridad,
                             size: 14,
                             color: priority == TaskPriority.high
                                 ? theme.colorScheme.error
@@ -167,7 +168,7 @@ class TaskTile extends ConsumerWidget {
                 ),
               if (onPlan != null && !cerrada)
                 IconButton(
-                  icon: const Icon(Icons.more_horiz),
+                  icon: const Icon(AppIcons.mas),
                   tooltip: 'Cuándo y cuánto tiempo',
                   onPressed: onPlan,
                 )

@@ -12,6 +12,7 @@ import '../../core/widgets/copiar.dart';
 import '../../core/widgets/renombrar_dialog.dart';
 import '../../core/widgets/markdown_field.dart';
 import '../../links/presentation/wiki_links.dart';
+import '../../core/theme/app_icons.dart';
 
 class TaskDetailScreen extends ConsumerStatefulWidget {
   const TaskDetailScreen({super.key, required this.taskId});
@@ -68,7 +69,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
             builder: (context, snapshot) {
               final task = snapshot.data;
               return IconButton(
-                icon: const Icon(Icons.copy_outlined),
+                icon: const Icon(AppIcons.copiar),
                 tooltip: 'Copiar tarea',
                 onPressed: task == null
                     ? null
@@ -105,7 +106,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.edit_outlined),
+                    icon: const Icon(AppIcons.editar),
                     tooltip: 'Renombrar',
                     onPressed: () async {
                       final nuevo = await pedirNuevoTexto(
@@ -197,7 +198,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.edit_calendar_outlined),
+                      icon: const Icon(AppIcons.calendario),
                       tooltip: 'Elegir fecha límite',
                       onPressed: () async {
                         final picked = await showDatePicker(
@@ -213,7 +214,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                     ),
                     if (task.dueAt != null)
                       IconButton(
-                        icon: const Icon(Icons.clear),
+                        icon: const Icon(AppIcons.cerrar),
                         tooltip: 'Quitar fecha límite',
                         onPressed: () => taskRepo.changeDueAt(task.id, null),
                       ),
@@ -243,7 +244,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   final entity = linkSnapshot.data;
                   if (entity == null) {
                     return ActionChip(
-                      avatar: const Icon(Icons.add_link, size: 18),
+                      avatar: const Icon(AppIcons.conectar, size: 18),
                       label: const Text('Vincular a...'),
                       onPressed: () =>
                           mostrarVincularEntitySheet(context, ref, task.id),
@@ -254,7 +255,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                       title: Text(entity.title),
                       subtitle: Text(entity.type.toEntityType().label),
                       trailing: IconButton(
-                        icon: const Icon(Icons.link_off),
+                        icon: const Icon(AppIcons.desconectar),
                         tooltip: 'Desvincular',
                         onPressed: () => taskRepo.unlinkFromEntity(task.id),
                       ),
@@ -267,7 +268,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               const SizedBox(height: 32),
               TextButton.icon(
                 onPressed: () => _confirmarEliminar(context),
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                icon: const Icon(AppIcons.eliminar, color: Colors.red),
                 label: const Text(
                   'Eliminar tarea',
                   style: TextStyle(color: Colors.red),

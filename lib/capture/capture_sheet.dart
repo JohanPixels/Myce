@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../entities/data/entity_repository_provider.dart';
 import '../entities/domain/entity_type.dart';
 import '../inbox/data/inbox_repository_provider.dart';
+import '../core/theme/app_icons.dart';
 
 Future<void> mostrarCapturaSheet(BuildContext context, WidgetRef ref) {
   final controller = TextEditingController();
@@ -40,7 +41,7 @@ Future<void> mostrarCapturaSheet(BuildContext context, WidgetRef ref) {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.send),
+                      icon: const Icon(AppIcons.enviar),
                       onPressed: () =>
                           _guardar(ctx, ref, controller, tipoSeleccionado),
                     ),

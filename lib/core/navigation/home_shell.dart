@@ -15,6 +15,7 @@ import '../../settings/capture_button_preference.dart';
 import '../database/database_provider.dart';
 import 'app_sections.dart';
 import 'carousel_nav_bar.dart';
+import '../theme/app_icons.dart';
 
 /// Sincroniza sola, sin depender de que el usuario toque el botón manual:
 /// una vez al entrar (hidrata un dispositivo nuevo con lo que ya existe en
@@ -137,18 +138,18 @@ class _AppShellState extends ConsumerState<AppShell>
             actions: [
               if (posicionFab == CaptureButtonPosition.oculto)
                 IconButton(
-                  icon: const Icon(Icons.add_circle_outline),
+                  icon: const Icon(AppIcons.capturar),
                   tooltip: 'Capturar',
                   onPressed: () => mostrarCapturaSheet(context, ref),
                 ),
               IconButton(
-                icon: const Icon(Icons.search),
+                icon: const Icon(AppIcons.buscar),
                 tooltip: 'Buscar',
                 onPressed: () => _buscar(context),
               ),
               const SyncButton(),
               IconButton(
-                icon: const Icon(Icons.settings_outlined),
+                icon: const Icon(AppIcons.ajustes),
                 tooltip: 'Configuración',
                 onPressed: () => context.push('/settings'),
               ),
@@ -182,7 +183,7 @@ class _AppShellState extends ConsumerState<AppShell>
                 child: FloatingActionButton(
                   tooltip: 'Capturar',
                   onPressed: () => mostrarCapturaSheet(context, ref),
-                  child: const Icon(Icons.add),
+                  child: const Icon(AppIcons.agregar),
                 ),
               ),
             ),

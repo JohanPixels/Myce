@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/project_palette.dart';
 import '../data/project_repository_provider.dart';
 import 'project_avatar.dart';
+import '../../core/theme/app_icons.dart';
 
 const _emojisSugeridos = [
   '🚀', '💻', '📱', '🍄', '🎬', '🎨', '✍️', '📚', '🎵', //
@@ -213,7 +214,7 @@ class _OpcionColor extends StatelessWidget {
           ),
           child: seleccionado
               ? Icon(
-                  Icons.check,
+                  AppIcons.check,
                   color:
                       ThemeData.estimateBrightnessForColor(color) ==
                           Brightness.dark

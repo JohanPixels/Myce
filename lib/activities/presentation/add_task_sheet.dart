@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/task_repository_provider.dart';
 import '../domain/task_enums.dart';
+import '../../core/theme/app_icons.dart';
 
 Future<void> mostrarAgregarTareaSheet(
   BuildContext context,
@@ -66,7 +67,7 @@ Future<void> mostrarAgregarTareaSheet(
                         style: Theme.of(ctx).textTheme.bodyMedium,
                       ),
                       IconButton(
-                        icon: const Icon(Icons.edit_calendar_outlined),
+                        icon: const Icon(AppIcons.calendario),
                         tooltip: 'Elegir fecha límite',
                         onPressed: () async {
                           final picked = await showDatePicker(
@@ -82,7 +83,7 @@ Future<void> mostrarAgregarTareaSheet(
                       ),
                       if (fechaLimite != null)
                         IconButton(
-                          icon: const Icon(Icons.clear),
+                          icon: const Icon(AppIcons.cerrar),
                           tooltip: 'Quitar fecha límite',
                           onPressed: () => setState(() => fechaLimite = null),
                         ),

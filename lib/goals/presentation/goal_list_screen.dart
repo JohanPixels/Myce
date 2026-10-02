@@ -11,6 +11,8 @@ import '../../projects/presentation/project_avatar.dart';
 import '../../relations/presentation/add_relation_sheet.dart';
 import '../data/goal_repository.dart';
 import '../data/goal_repository_provider.dart';
+import '../../core/theme/app_icons.dart';
+import '../../core/widgets/estado_vacio.dart';
 
 /// Pestaña "Metas": cada Meta con los proyectos que la empujan y cuánto
 /// avanzan entre todos. Reemplaza al `CategoryScreen` genérico.
@@ -65,17 +67,15 @@ class _GoalListScreenState extends ConsumerState<GoalListScreen> {
             ),
             Expanded(
               child: visibles.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(spacing.xl),
-                        child: Text(
-                          _filtro == EntityStatus.active
-                              ? 'No hay metas activas.\nCaptura una y '
-                                    'clasifícala como Meta desde el Inbox.'
-                              : 'Nada en ${_filtro.label.toLowerCase()}.',
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
+                  ? EstadoVacioGrande(
+                      icono: AppIconsDuo.meta,
+                      titulo: _filtro == EntityStatus.active
+                          ? 'Sin metas activas'
+                          : 'Nada en ${_filtro.label.toLowerCase()}',
+                      texto: _filtro == EntityStatus.active
+                          ? 'Captura una y clasifícala como Meta desde el '
+                                'Inbox; después conéctale proyectos.'
+                          : 'Aquí aparecen las metas con ese estado.',
                     )
                   : ListView.separated(
                       padding: EdgeInsets.fromLTRB(
@@ -125,7 +125,7 @@ class _GoalCard extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.flag_outlined, color: scheme.primary),
+                      Icon(AppIcons.meta, color: scheme.primary),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -176,7 +176,7 @@ class _GoalCard extends ConsumerWidget {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
               child: TextButton.icon(
-                icon: const Icon(Icons.add_link, size: 18),
+                icon: const Icon(AppIcons.conectar, size: 18),
                 label: const Text('Conectar proyecto'),
                 onPressed: () =>
                     mostrarAgregarRelacionSheet(context, ref, meta.id),

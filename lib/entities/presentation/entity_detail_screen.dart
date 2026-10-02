@@ -18,6 +18,7 @@ import '../domain/entity_type.dart';
 import '../../core/widgets/copiar.dart';
 import '../../core/widgets/markdown_field.dart';
 import '../../links/presentation/wiki_links.dart';
+import '../../core/theme/app_icons.dart';
 
 const _estados = ['active', 'paused', 'someday', 'archived'];
 
@@ -152,7 +153,7 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
                   ),
                   if (_titleDirty)
                     IconButton(
-                      icon: const Icon(Icons.check),
+                      icon: const Icon(AppIcons.check),
                       tooltip: 'Guardar nombre',
                       onPressed: () => _saveTitle(entityRepo, entity.id),
                     ),
@@ -201,7 +202,7 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                icon: const Icon(Icons.edit_calendar_outlined),
+                                icon: const Icon(AppIcons.calendario),
                                 tooltip: 'Elegir fecha de inicio',
                                 onPressed: () => _pickDate(
                                   context,
@@ -214,7 +215,7 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
                               ),
                               if (project?.startedAt != null)
                                 IconButton(
-                                  icon: const Icon(Icons.clear),
+                                  icon: const Icon(AppIcons.cerrar),
                                   tooltip: 'Quitar fecha de inicio',
                                   onPressed: () => entityRepo
                                       .updateProjectStartedAt(entity.id, null),
@@ -234,7 +235,7 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                icon: const Icon(Icons.edit_calendar_outlined),
+                                icon: const Icon(AppIcons.calendario),
                                 tooltip: 'Elegir fecha de completado',
                                 onPressed: () => _pickDate(
                                   context,
@@ -247,7 +248,7 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
                               ),
                               if (project?.completedAt != null)
                                 IconButton(
-                                  icon: const Icon(Icons.clear),
+                                  icon: const Icon(AppIcons.cerrar),
                                   tooltip: 'Quitar fecha de completado',
                                   onPressed: () =>
                                       entityRepo.updateProjectCompletedAt(
@@ -308,7 +309,7 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
                         );
                       }),
                       ActionChip(
-                        avatar: const Icon(Icons.add, size: 18),
+                        avatar: const Icon(AppIcons.agregar, size: 18),
                         label: const Text('Agregar tag'),
                         onPressed: () =>
                             _mostrarAgregarTag(context, tagRepo, entity.id),
@@ -327,7 +328,7 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.add_task),
+                    icon: const Icon(AppIcons.agregarTarea),
                     tooltip: 'Agregar tarea',
                     onPressed: () =>
                         mostrarAgregarTareaSheet(context, ref, entity.id),
@@ -370,7 +371,7 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.add_link),
+                    icon: const Icon(AppIcons.conectar),
                     tooltip: 'Conectar con otra entity',
                     onPressed: () async {
                       await mostrarAgregarRelacionSheet(
@@ -421,7 +422,7 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
               const SizedBox(height: 32),
               TextButton.icon(
                 onPressed: () => _confirmarEliminar(context),
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                icon: const Icon(AppIcons.eliminar, color: Colors.red),
                 label: const Text(
                   'Eliminar',
                   style: TextStyle(color: Colors.red),

@@ -6,6 +6,7 @@ import '../core/navigation/navigation_helpers.dart';
 import '../entities/data/entity_repository_provider.dart';
 import '../entities/domain/entity_type.dart';
 import '../core/widgets/copiar.dart';
+import '../core/theme/app_icons.dart';
 
 const _diasEstancado = 7;
 
@@ -56,7 +57,7 @@ class ReviewScreen extends ConsumerWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             IconButton(
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(AppIcons.recargar),
               onPressed: () => ref.invalidate(wishlistSugerenciasProvider),
             ),
           ],

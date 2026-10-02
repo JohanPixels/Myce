@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
 import 'app_sections.dart';
 
 /// Barra de secciones tipo carrusel: la sección activa queda siempre en el
@@ -175,7 +176,10 @@ class _ItemSeccion extends StatelessWidget {
                     color: scheme.primary.withValues(alpha: 0.16 * cercania),
                     borderRadius: BorderRadius.circular(15),
                   ),
-                  child: Icon(seccion.icon, color: color, size: 22),
+                  // La activa en duotono (con relleno), el resto en línea.
+                  child: cercania > 0.5
+                      ? IconoDuo(seccion.iconoDuo, color: color, size: 22)
+                      : Icon(seccion.icon, color: color, size: 22),
                 ),
                 const SizedBox(height: 4),
                 Text(
