@@ -8,6 +8,9 @@ import '../../entities/domain/entity_type.dart';
 import '../data/task_repository_provider.dart';
 import '../domain/task_enums.dart';
 import 'link_entity_sheet.dart';
+import '../../core/widgets/copiar.dart';
+import '../../core/widgets/renombrar_dialog.dart';
+import '../../core/widgets/markdown_field.dart';
 
 class TaskDetailScreen extends ConsumerStatefulWidget {
   const TaskDetailScreen({super.key, required this.taskId});
@@ -19,12 +22,8 @@ class TaskDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
-  final _descriptionController = TextEditingController();
-  bool _descriptionDirty = false;
-
   @override
   void dispose() {
-    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -60,7 +59,27 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     final taskRepo = ref.watch(taskRepositoryProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Detalle de tarea')),
+      appBar: AppBar(
+        title: const Text('Detalle de tarea'),
+        actions: [
+          StreamBuilder<TaskRow?>(
+            stream: taskRepo.watchById(widget.taskId),
+            builder: (context, snapshot) {
+              final task = snapshot.data;
+              return IconButton(
+                icon: const Icon(Icons.copy_outlined),
+                tooltip: 'Copiar tarea',
+                onPressed: task == null
+                    ? null
+                    : () => copiarTexto(
+                        context,
+                        tituloYCuerpo(task.title, task.description),
+                      ),
+              );
+            },
+          ),
+        ],
+      ),
       body: StreamBuilder<TaskRow?>(
         stream: taskRepo.watchById(widget.taskId),
         builder: (context, snapshot) {
@@ -71,15 +90,35 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           if (task == null) {
             return const Center(child: Text('Esto ya no existe'));
           }
-          if (!_descriptionDirty &&
-              _descriptionController.text != (task.description ?? '')) {
-            _descriptionController.text = task.description ?? '';
-          }
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Text(task.title, style: Theme.of(context).textTheme.headlineSmall),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      task.title,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    tooltip: 'Renombrar',
+                    onPressed: () async {
+                      final nuevo = await pedirNuevoTexto(
+                        context,
+                        titulo: 'Renombrar tarea',
+                        actual: task.title,
+                        maxLength: 200,
+                        multilinea: true,
+                      );
+                      if (nuevo != null) taskRepo.updateTitle(task.id, nuevo);
+                    },
+                  ),
+                ],
+              ),
 
               const SizedBox(height: 20),
               Text('Estado', style: Theme.of(context).textTheme.titleMedium),
@@ -182,39 +221,13 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               ),
 
               const SizedBox(height: 20),
-              Text(
-                'Descripción',
-                style: Theme.of(context).textTheme.titleMedium,
+              MarkdownField(
+                label: 'Descripción',
+                value: task.description,
+                tituloLectura: task.title,
+                hint: 'Detalles opcionales… (soporta Markdown)',
+                onSave: (v) => taskRepo.updateDescription(task.id, v),
               ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _descriptionController,
-                maxLines: null,
-                minLines: 3,
-                decoration: const InputDecoration(
-                  hintText: 'Detalles opcionales...',
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: (_) => setState(() => _descriptionDirty = true),
-              ),
-              if (_descriptionDirty) ...[
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton(
-                    onPressed: () async {
-                      await taskRepo.updateDescription(
-                        task.id,
-                        _descriptionController.text.trim().isEmpty
-                            ? null
-                            : _descriptionController.text.trim(),
-                      );
-                      setState(() => _descriptionDirty = false);
-                    },
-                    child: const Text('Guardar descripción'),
-                  ),
-                ),
-              ],
 
               const SizedBox(height: 20),
               Text(

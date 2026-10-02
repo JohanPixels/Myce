@@ -5,6 +5,8 @@ import '../../core/database/app_database.dart';
 import '../../core/theme/app_theme.dart';
 import '../data/project_repository.dart';
 import '../data/project_repository_provider.dart';
+import '../../core/widgets/renombrar_dialog.dart';
+import '../../inbox/data/inbox_repository_provider.dart';
 
 /// Recorre las capturas "sin clasificar" del proyecto una por una: muestra
 /// la primera y cuatro botones (Tarea / Observación / Requisito / Idea).
@@ -150,16 +152,35 @@ class _ClasificarSheetState extends ConsumerState<_ClasificarSheet> {
                 ],
               ),
               const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('Descartar'),
-                  onPressed: () {
-                    setState(() => _procesados.add(item.id));
-                    repo.discardCapture(item.id);
-                  },
-                ),
+              Row(
+                children: [
+                  TextButton.icon(
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('Editar'),
+                    onPressed: () async {
+                      final nuevo = await pedirNuevoTexto(
+                        context,
+                        titulo: 'Editar captura',
+                        actual: item.content,
+                        multilinea: true,
+                      );
+                      if (nuevo != null) {
+                        ref
+                            .read(inboxRepositoryProvider)
+                            .updateContent(item.id, nuevo);
+                      }
+                    },
+                  ),
+                  const Spacer(),
+                  TextButton.icon(
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('Descartar'),
+                    onPressed: () {
+                      setState(() => _procesados.add(item.id));
+                      repo.discardCapture(item.id);
+                    },
+                  ),
+                ],
               ),
             ],
           ),

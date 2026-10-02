@@ -35,9 +35,21 @@ class InboxRepository {
             ..orderBy([(i) => OrderingTerm(expression: i.createdAt)]))
           .watch();
 
-  Future<InboxItemRow> getById(String id) => (_db.select(
-    _db.inboxItems,
-  )..where((i) => i.id.equals(id))).getSingle();
+  Future<void> updateContent(String id, String content) {
+    return (_db.update(_db.inboxItems)..where((i) => i.id.equals(id))).write(
+      InboxItemsCompanion(content: Value(content), dirty: const Value(true)),
+    );
+  }
+
+  /// Deshacer un `markProcessed` (ej. borrado por error desde el Inbox).
+  Future<void> restore(String id) {
+    return (_db.update(_db.inboxItems)..where((i) => i.id.equals(id))).write(
+      const InboxItemsCompanion(deletedAt: Value(null), dirty: Value(true)),
+    );
+  }
+
+  Future<InboxItemRow> getById(String id) =>
+      (_db.select(_db.inboxItems)..where((i) => i.id.equals(id))).getSingle();
 
   /// Saca el item del Inbox (soft-delete, para que el sync lo propague):
   /// ya se procesó, o se descartó.

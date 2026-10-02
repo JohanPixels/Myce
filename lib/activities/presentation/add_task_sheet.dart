@@ -43,10 +43,7 @@ Future<void> mostrarAgregarTareaSheet(
                     onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    'Prioridad',
-                    style: Theme.of(ctx).textTheme.titleSmall,
-                  ),
+                  Text('Prioridad', style: Theme.of(ctx).textTheme.titleSmall),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,

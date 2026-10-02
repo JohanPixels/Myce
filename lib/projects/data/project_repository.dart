@@ -147,11 +147,9 @@ class ProjectRepository {
 
     final sinClasificar = <String, int>{};
     if (ids.isNotEmpty) {
-      final capturas =
-          await (_db.select(_db.inboxItems)..where(
-                (i) => i.entityId.isIn(ids) & i.deletedAt.isNull(),
-              ))
-              .get();
+      final capturas = await (_db.select(
+        _db.inboxItems,
+      )..where((i) => i.entityId.isIn(ids) & i.deletedAt.isNull())).get();
       for (final c in capturas) {
         sinClasificar.update(c.entityId!, (n) => n + 1, ifAbsent: () => 1);
       }

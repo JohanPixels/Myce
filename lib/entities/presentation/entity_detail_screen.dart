@@ -15,6 +15,8 @@ import '../../tags/data/tag_repository_provider.dart';
 import '../data/entity_repository.dart';
 import '../data/entity_repository_provider.dart';
 import '../domain/entity_type.dart';
+import '../../core/widgets/copiar.dart';
+import '../../core/widgets/markdown_field.dart';
 
 const _estados = ['active', 'paused', 'someday', 'archived'];
 
@@ -24,17 +26,12 @@ class EntityDetailScreen extends ConsumerStatefulWidget {
   final String entityId;
 
   @override
-  ConsumerState<EntityDetailScreen> createState() =>
-      _EntityDetailScreenState();
+  ConsumerState<EntityDetailScreen> createState() => _EntityDetailScreenState();
 }
 
 class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
   final _titleController = TextEditingController();
   bool _titleDirty = false;
-  final _descriptionController = TextEditingController();
-  bool _descriptionDirty = false;
-  final _noteContentController = TextEditingController();
-  bool _noteContentDirty = false;
   late Future<List<RelationDisplayItem>> _relationsFuture;
 
   @override
@@ -56,8 +53,6 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
   @override
   void dispose() {
     _titleController.dispose();
-    _descriptionController.dispose();
-    _noteContentController.dispose();
     super.dispose();
   }
 
@@ -135,10 +130,6 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
           if (!_titleDirty && _titleController.text != entity.title) {
             _titleController.text = entity.title;
           }
-          if (!_descriptionDirty &&
-              _descriptionController.text != (entity.description ?? '')) {
-            _descriptionController.text = entity.description ?? '';
-          }
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -178,10 +169,8 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
                   return ChoiceChip(
                     label: Text(s),
                     selected: entity.status == s,
-                    onSelected: (_) => entityRepo.changeStatus(
-                      entity.id,
-                      s.toEntityStatus(),
-                    ),
+                    onSelected: (_) =>
+                        entityRepo.changeStatus(entity.id, s.toEntityStatus()),
                   );
                 }).toList(),
               ),
@@ -259,8 +248,8 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
                                 IconButton(
                                   icon: const Icon(Icons.clear),
                                   tooltip: 'Quitar fecha de completado',
-                                  onPressed: () => entityRepo
-                                      .updateProjectCompletedAt(
+                                  onPressed: () =>
+                                      entityRepo.updateProjectCompletedAt(
                                         entity.id,
                                         null,
                                       ),
@@ -278,91 +267,24 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
               // Note tiene contenido propio (Markdown) en notes.content —
               // docs/fuente_de_verdad.md §4.3. El resto de los tipos no
               // tienen campo de texto propio y usan entities.description.
-              if (type == EntityType.note) ...[
-                Text(
-                  'Contenido',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
+              if (type == EntityType.note)
                 StreamBuilder<NoteRow?>(
                   stream: entityRepo.watchNote(entity.id),
-                  builder: (context, noteSnapshot) {
-                    final note = noteSnapshot.data;
-                    if (!_noteContentDirty &&
-                        _noteContentController.text !=
-                            (note?.content ?? '')) {
-                      _noteContentController.text = note?.content ?? '';
-                    }
-                    return Column(
-                      children: [
-                        TextField(
-                          controller: _noteContentController,
-                          maxLines: null,
-                          minLines: 6,
-                          decoration: const InputDecoration(
-                            hintText: 'Escribí tu nota en Markdown...',
-                            border: OutlineInputBorder(),
-                          ),
-                          onChanged: (_) =>
-                              setState(() => _noteContentDirty = true),
-                        ),
-                        if (_noteContentDirty) ...[
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: FilledButton(
-                              onPressed: () async {
-                                await entityRepo.updateNoteContent(
-                                  entity.id,
-                                  _noteContentController.text.trim().isEmpty
-                                      ? null
-                                      : _noteContentController.text.trim(),
-                                );
-                                setState(() => _noteContentDirty = false);
-                              },
-                              child: const Text('Guardar contenido'),
-                            ),
-                          ),
-                        ],
-                      ],
-                    );
-                  },
-                ),
-              ] else ...[
-                Text(
-                  'Notas',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _descriptionController,
-                  maxLines: null,
-                  minLines: 4,
-                  decoration: const InputDecoration(
-                    hintText: 'Escribí lo que quieras guardar sobre esto...',
-                    border: OutlineInputBorder(),
+                  builder: (context, noteSnapshot) => MarkdownField(
+                    label: 'Contenido',
+                    value: noteSnapshot.data?.content,
+                    tituloLectura: entity.title,
+                    hint: 'Escribe tu nota… (soporta Markdown)',
+                    onSave: (v) => entityRepo.updateNoteContent(entity.id, v),
                   ),
-                  onChanged: (_) => setState(() => _descriptionDirty = true),
+                )
+              else
+                MarkdownField(
+                  label: 'Notas',
+                  value: entity.description,
+                  tituloLectura: entity.title,
+                  onSave: (v) => entityRepo.updateDescription(entity.id, v),
                 ),
-                if (_descriptionDirty) ...[
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: FilledButton(
-                      onPressed: () async {
-                        await entityRepo.updateDescription(
-                          entity.id,
-                          _descriptionController.text.trim().isEmpty
-                              ? null
-                              : _descriptionController.text.trim(),
-                        );
-                        setState(() => _descriptionDirty = false);
-                      },
-                      child: const Text('Guardar notas'),
-                    ),
-                  ),
-                ],
-              ],
 
               const SizedBox(height: 24),
               Text('Tags', style: Theme.of(context).textTheme.titleMedium),
@@ -397,7 +319,10 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Tareas', style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    'Tareas',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   IconButton(
                     icon: const Icon(Icons.add_task),
                     tooltip: 'Agregar tarea',
@@ -423,6 +348,10 @@ class _EntityDetailScreenState extends ConsumerState<EntityDetailScreen> {
                         title: Text(t.title),
                         subtitle: Text(t.status.toTaskStatus().label),
                         onTap: () => pushTaskDetail(context, t.id),
+                        onLongPress: () => copiarTexto(
+                          context,
+                          tituloYCuerpo(t.title, t.description),
+                        ),
                       );
                     }).toList(),
                   );

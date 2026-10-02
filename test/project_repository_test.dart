@@ -220,4 +220,22 @@ void main() {
     final filas = await db.select(db.inboxItems).get();
     expect(filas.single.deletedAt, isNotNull);
   });
+
+  test('renombrar una tarea y editar una captura las marca dirty', () async {
+    final id = await projects.addTask(projectId, 'Viejo');
+    await projects.capture(projectId, 'captura vieja');
+    final captura = (await projects.watchUnclassified(projectId).first).single;
+    await (db.update(db.tasks)..where((t) => t.id.equals(id)))
+        .write(const TasksCompanion(dirty: Value(false)));
+    await (db.update(db.inboxItems)..where((i) => i.id.equals(captura.id)))
+        .write(const InboxItemsCompanion(dirty: Value(false)));
+
+    await tasks.updateTitle(id, 'Nuevo');
+    await inbox.updateContent(captura.id, 'captura nueva');
+
+    final tarea = (await tasks.watchById(id).first)!;
+    final item = await inbox.getById(captura.id);
+    expect((tarea.title, tarea.dirty), ('Nuevo', true));
+    expect((item.content, item.dirty), ('captura nueva', true));
+  });
 }

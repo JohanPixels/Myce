@@ -109,6 +109,11 @@ class _AppShellState extends ConsumerState<AppShell>
                 onPressed: () => _buscar(context),
               ),
               const SyncButton(),
+              IconButton(
+                icon: const Icon(Icons.settings_outlined),
+                tooltip: 'Configuración',
+                onPressed: () => context.push('/settings'),
+              ),
             ],
           ),
           body: widget.navigationShell,
@@ -127,6 +132,16 @@ class _AppShellState extends ConsumerState<AppShell>
                 labelColor: colors.primary,
                 unselectedLabelColor: colors.onSurfaceVariant,
                 indicatorColor: colors.primary,
+                // Tocar la sección en la que ya estás la "recarga": vuelve a
+                // su pantalla principal (sale de cualquier detalle abierto
+                // adentro) y dispara un sync. El cambio a OTRA sección lo
+                // maneja `_TabBranchSync`.
+                onTap: (i) {
+                  if (i == widget.navigationShell.currentIndex) {
+                    widget.navigationShell.goBranch(i, initialLocation: true);
+                    _triggerSync();
+                  }
+                },
                 tabs: [
                   for (final seccion in appSections)
                     Tab(icon: Icon(seccion.icon), text: seccion.titulo),

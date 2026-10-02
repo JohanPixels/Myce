@@ -14,6 +14,7 @@ import '../../features/auth/login_screen.dart';
 import '../../inbox/inbox_screen.dart';
 import '../../projects/presentation/project_list_screen.dart';
 import '../../review/review_screen.dart';
+import '../../settings/settings_screen.dart';
 import 'app_sections.dart';
 import 'home_shell.dart';
 import 'swipeable_branch_view.dart';
@@ -100,6 +101,11 @@ final appRouter = GoRouter(
   },
   routes: [
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+    // Fuera del shell: pantalla completa, sin tira de secciones ni FAB.
+    GoRoute(
+      path: '/settings',
+      builder: (context, state) => const SettingsScreen(),
+    ),
     StatefulShellRoute(
       builder: (context, state, navigationShell) =>
           AppShell(navigationShell: navigationShell),

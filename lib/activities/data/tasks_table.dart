@@ -17,10 +17,8 @@ class Tasks extends Table {
   TextColumn get horizon => text().nullable()();
   TextColumn get size => text().nullable()();
   DateTimeColumn get completedAt => dateTime().nullable()();
-  DateTimeColumn get createdAt =>
-      dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get updatedAt =>
-      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   BoolColumn get dirty => boolean().withDefault(const Constant(true))();
   DateTimeColumn get deletedAt => dateTime().nullable()();
 
@@ -42,8 +40,7 @@ class ActivityLinks extends Table {
   TextColumn get entityId =>
       text().references(Entities, #id, onDelete: KeyAction.cascade)();
   TextColumn get linkType => text()(); // vocabulario separado de relation_types
-  DateTimeColumn get createdAt =>
-      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   BoolColumn get dirty => boolean().withDefault(const Constant(true))();
   DateTimeColumn get deletedAt => dateTime().nullable()();
 

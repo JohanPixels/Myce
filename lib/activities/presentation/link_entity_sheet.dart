@@ -69,8 +69,7 @@ Future<void> mostrarVincularEntitySheet(
                                 title: Text(e.title),
                                 subtitle: Text(e.type.toEntityType().label),
                                 selected: seleccionada?.id == e.id,
-                                onTap: () =>
-                                    setState(() => seleccionada = e),
+                                onTap: () => setState(() => seleccionada = e),
                               );
                             }).toList(),
                           ),

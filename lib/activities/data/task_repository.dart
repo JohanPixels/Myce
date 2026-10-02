@@ -153,6 +153,16 @@ class TaskRepository {
     );
   }
 
+  Future<void> updateTitle(String id, String title) {
+    return (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
+      TasksCompanion(
+        title: Value(title),
+        updatedAt: Value(DateTime.now()),
+        dirty: const Value(true),
+      ),
+    );
+  }
+
   Future<void> changeHorizon(String id, TaskHorizon horizon) {
     return (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
       TasksCompanion(

@@ -9,6 +9,7 @@ import '../../entities/domain/entity_type.dart';
 import '../data/project_repository.dart';
 import '../data/project_repository_provider.dart';
 import 'project_avatar.dart';
+import '../../core/widgets/copiar.dart';
 
 /// Pestaña "Proyectos": tarjetas con progreso y próxima acción, filtradas
 /// por estado. Reemplaza al `CategoryScreen` genérico solo para Project.
@@ -147,6 +148,7 @@ class _ProjectCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => pushEntityDetail(context, entity.id),
+        onLongPress: () => copiarTexto(context, entity.title),
         child: Padding(
           padding: EdgeInsets.all(spacing.md),
           child: Column(
@@ -185,7 +187,7 @@ class _ProjectCard extends StatelessWidget {
                         child: Text(
                           '${summary.unclassified}',
                           style: theme.textTheme.labelMedium?.copyWith(
-                            color: Colors.black,
+                            color: context.octoColors.onEnCurso,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -328,6 +330,7 @@ class _ProximoRatoCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => pushTaskDetail(context, tarea.id),
+        onLongPress: () => copiarTexto(context, tarea.title),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(

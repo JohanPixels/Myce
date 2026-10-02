@@ -8,7 +8,11 @@ import 'package:flutter/material.dart';
 /// y el título del AppBar — antes eran dos listas paralelas
 /// (`_titulosPorRama`/`_pathsPorRama`) que había que mantener en sync a mano.
 class AppSection {
-  const AppSection({required this.path, required this.titulo, required this.icon});
+  const AppSection({
+    required this.path,
+    required this.titulo,
+    required this.icon,
+  });
 
   final String path;
   final String titulo;

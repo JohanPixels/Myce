@@ -6,6 +6,7 @@ import '../../core/navigation/navigation_helpers.dart';
 import '../data/task_repository.dart';
 import '../data/task_repository_provider.dart';
 import '../domain/task_enums.dart';
+import '../../core/widgets/copiar.dart';
 
 class TaskListScreen extends ConsumerStatefulWidget {
   const TaskListScreen({super.key});
@@ -25,10 +26,9 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
       final porFecha = a.dueAt!.compareTo(b.dueAt!);
       if (porFecha != 0) return porFecha;
     }
-    final porPrioridad = b.priority
-        .toTaskPriority()
-        .index
-        .compareTo(a.priority.toTaskPriority().index);
+    final porPrioridad = b.priority.toTaskPriority().index.compareTo(
+      a.priority.toTaskPriority().index,
+    );
     if (porPrioridad != 0) return porPrioridad;
     return a.createdAt.compareTo(b.createdAt);
   }
@@ -60,6 +60,8 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
             .toList(),
       ),
       onTap: () => pushTaskDetail(context, task.id),
+      onLongPress: () =>
+          copiarTexto(context, tituloYCuerpo(task.title, task.description)),
     );
   }
 

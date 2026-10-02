@@ -16,8 +16,7 @@ class InboxItems extends Table {
   // dónde pertenece, solo falta decidir qué es. Estas no aparecen en el
   // Inbox general (se clasifican desde el proyecto); null = Inbox general.
   TextColumn get entityId => text().nullable().references(Entities, #id)();
-  DateTimeColumn get createdAt =>
-      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   BoolColumn get dirty => boolean().withDefault(const Constant(true))();
   DateTimeColumn get deletedAt => dateTime().nullable()();
 

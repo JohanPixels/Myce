@@ -13,6 +13,9 @@ import '../data/project_repository_provider.dart';
 import 'classify_capture_sheet.dart';
 import 'project_appearance_sheet.dart';
 import 'project_avatar.dart';
+import '../../core/widgets/copiar.dart';
+import '../../core/widgets/renombrar_dialog.dart';
+import '../../entities/data/entity_repository_provider.dart';
 
 /// Pantalla propia de un Project: cabecera con progreso y tres pestañas —
 /// Tareas (acciones), Observaciones (cosas que notaste, Notes del proyecto)
@@ -54,18 +57,68 @@ class ProjectDetailScreen extends ConsumerWidget {
           colorKey: summary.project?.color,
         );
 
+        Future<void> renombrar() async {
+          final nuevo = await pedirNuevoTexto(
+            context,
+            titulo: 'Renombrar proyecto',
+            actual: summary.entity.title,
+            maxLength: 200,
+          );
+          if (nuevo != null) {
+            ref.read(entityRepositoryProvider).updateTitle(projectId, nuevo);
+          }
+        }
+
+        Future<void> cambiarEstado() async {
+          final actual = summary.entity.status.toEntityStatus();
+          final nuevo = await showModalBottomSheet<EntityStatus>(
+            context: context,
+            builder: (ctx) => SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final estado in EntityStatus.values)
+                    ListTile(
+                      leading: Icon(
+                        estado == actual
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                      ),
+                      title: Text(estado.label),
+                      subtitle: Text(switch (estado) {
+                        EntityStatus.active => 'En movimiento',
+                        EntityStatus.paused =>
+                          'Detenido por ahora, vuelvo luego',
+                        EntityStatus.someday => 'Quizás algún día',
+                        EntityStatus.archived => 'Terminado o descartado',
+                      }),
+                      onTap: () => Navigator.of(ctx).pop(estado),
+                    ),
+                ],
+              ),
+            ),
+          );
+          if (nuevo != null && nuevo != actual) {
+            ref.read(entityRepositoryProvider).changeStatus(projectId, nuevo);
+          }
+        }
+
         return Scaffold(
           appBar: AppBar(
             actions: [
               PopupMenuButton<String>(
                 tooltip: 'Más opciones',
                 onSelected: (accion) {
+                  if (accion == 'renombrar') renombrar();
+                  if (accion == 'estado') cambiarEstado();
                   if (accion == 'apariencia') editarApariencia();
                   if (accion == 'detalles') {
                     pushEntityDetail(context, projectId, generic: true);
                   }
                 },
                 itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'renombrar', child: Text('Renombrar')),
+                  PopupMenuItem(value: 'estado', child: Text('Cambiar estado')),
                   PopupMenuItem(
                     value: 'apariencia',
                     child: Text('Cambiar emoji y color'),
@@ -86,6 +139,8 @@ class ProjectDetailScreen extends ConsumerWidget {
                   child: _Cabecera(
                     summary: summary,
                     onTapAvatar: editarApariencia,
+                    onTapTitulo: renombrar,
+                    onTapEstado: cambiarEstado,
                     onCapture: (texto) => repo.capture(projectId, texto),
                     onClasificar: () => mostrarClasificarCapturasSheet(
                       context,
@@ -131,12 +186,16 @@ class _Cabecera extends StatelessWidget {
   const _Cabecera({
     required this.summary,
     required this.onTapAvatar,
+    required this.onTapTitulo,
+    required this.onTapEstado,
     required this.onCapture,
     required this.onClasificar,
   });
 
   final ProjectSummary summary;
   final VoidCallback onTapAvatar;
+  final VoidCallback onTapTitulo;
+  final VoidCallback onTapEstado;
   final void Function(String texto) onCapture;
   final VoidCallback onClasificar;
 
@@ -178,18 +237,38 @@ class _Cabecera extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      entity.title,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
+                    GestureDetector(
+                      onTap: onTapTitulo,
+                      child: Text(
+                        entity.title,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      entity.status.toEntityStatus().label,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: color,
-                        fontWeight: FontWeight.w700,
+                    InkWell(
+                      onTap: onTapEstado,
+                      borderRadius: BorderRadius.circular(999),
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(10, 4, 6, 4),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: color),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              entity.status.toEntityStatus().label,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: color,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Icon(Icons.arrow_drop_down, size: 18, color: color),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -284,7 +363,7 @@ class _SinClasificarBanner extends StatelessWidget {
                 child: Text(
                   '$cantidad',
                   style: theme.textTheme.titleSmall?.copyWith(
-                    color: Colors.black,
+                    color: context.octoColors.onEnCurso,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -514,7 +593,9 @@ class _TareasTabState extends ConsumerState<_TareasTab> {
               ),
               if (items.isEmpty)
                 _Vacio(
-                  texto: _tengo == null ? vacio : 'Nada que quepa en ese tiempo.',
+                  texto: _tengo == null
+                      ? vacio
+                      : 'Nada que quepa en ese tiempo.',
                 )
               else
                 for (final t in items)
@@ -644,6 +725,8 @@ class _TareaTile extends ConsumerWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => pushTaskDetail(context, tarea.id),
+        onLongPress: () =>
+            copiarTexto(context, tituloYCuerpo(tarea.title, tarea.description)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           child: Row(
@@ -818,6 +901,7 @@ class _ObservacionCard extends ConsumerWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => pushEntityDetail(context, item.note.id),
+        onLongPress: () => copiarTexto(context, item.note.title),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 12, 6, 4),
           child: Column(
@@ -1006,6 +1090,10 @@ class _RequisitoTile extends ConsumerWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => pushTaskDetail(context, requisito.id),
+        onLongPress: () => copiarTexto(
+          context,
+          tituloYCuerpo(requisito.title, requisito.description),
+        ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(4, 2, 14, 2),
           child: Row(

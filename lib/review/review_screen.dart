@@ -5,6 +5,7 @@ import '../core/database/app_database.dart';
 import '../core/navigation/navigation_helpers.dart';
 import '../entities/data/entity_repository_provider.dart';
 import '../entities/domain/entity_type.dart';
+import '../core/widgets/copiar.dart';
 
 const _diasEstancado = 7;
 
@@ -14,11 +15,11 @@ final entitiesActivasProvider = FutureProvider.autoDispose<List<EntityRow>>((
   return ref.watch(entityRepositoryProvider).listActive();
 });
 
-final entitiesEstancadasProvider = FutureProvider.autoDispose<List<EntityRow>>(
-  (ref) {
-    return ref.watch(entityRepositoryProvider).listStagnant(_diasEstancado);
-  },
-);
+final entitiesEstancadasProvider = FutureProvider.autoDispose<List<EntityRow>>((
+  ref,
+) {
+  return ref.watch(entityRepositoryProvider).listStagnant(_diasEstancado);
+});
 
 final wishlistSugerenciasProvider = FutureProvider.autoDispose<List<EntityRow>>(
   (ref) {
@@ -117,6 +118,7 @@ class _Seccion extends ConsumerWidget {
                     title: Text(e.title),
                     subtitle: Text(e.type.toEntityType().label),
                     onTap: () => pushEntityDetail(context, e.id),
+                    onLongPress: () => copiarTexto(context, e.title),
                     trailing: mostrarAcciones
                         ? PopupMenuButton<String>(
                             onSelected: (accion) {

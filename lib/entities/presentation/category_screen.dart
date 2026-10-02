@@ -5,6 +5,7 @@ import '../../core/database/app_database.dart';
 import '../../core/navigation/navigation_helpers.dart';
 import '../data/entity_repository_provider.dart';
 import '../domain/entity_type.dart';
+import '../../core/widgets/copiar.dart';
 
 const _estados = ['active', 'paused', 'someday', 'archived'];
 
@@ -68,11 +69,10 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                     title: Text(e.title),
                     subtitle: Text(e.status),
                     onTap: () => pushEntityDetail(context, e.id),
+                    onLongPress: () => copiarTexto(context, e.title),
                     trailing: PopupMenuButton<String>(
-                      onSelected: (nuevoEstado) => repo.changeStatus(
-                        e.id,
-                        nuevoEstado.toEntityStatus(),
-                      ),
+                      onSelected: (nuevoEstado) =>
+                          repo.changeStatus(e.id, nuevoEstado.toEntityStatus()),
                       itemBuilder: (ctx) => _estados
                           .map((s) => PopupMenuItem(value: s, child: Text(s)))
                           .toList(),
